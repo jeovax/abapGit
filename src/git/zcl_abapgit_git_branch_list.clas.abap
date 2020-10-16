@@ -3,7 +3,6 @@ CLASS zcl_abapgit_git_branch_list DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
-
     METHODS constructor
       IMPORTING
         !iv_data TYPE string
@@ -19,12 +18,17 @@ CLASS zcl_abapgit_git_branch_list DEFINITION
     METHODS get_head_symref
       RETURNING
         VALUE(rv_head_symref) TYPE string .
+    METHODS get_all
+      RETURNING
+        VALUE(rt_branches) TYPE zif_abapgit_definitions=>ty_git_branch_list_tt
+      RAISING
+        zcx_abapgit_exception .
     METHODS get_branches_only
       RETURNING
         VALUE(rt_branches) TYPE zif_abapgit_definitions=>ty_git_branch_list_tt
       RAISING
         zcx_abapgit_exception .
-    METHODS get_tags_only         " For potential future use
+    METHODS get_tags_only             " For potential future use
       RETURNING
         VALUE(rt_tags) TYPE zif_abapgit_definitions=>ty_git_branch_list_tt
       RAISING
@@ -82,11 +86,6 @@ CLASS zcl_abapgit_git_branch_list DEFINITION
         !iv_data              TYPE string
       RETURNING
         VALUE(rv_head_symref) TYPE string .
-    CLASS-METHODS is_ignored
-      IMPORTING
-        !iv_branch_name  TYPE clike
-      RETURNING
-        VALUE(rv_ignore) TYPE abap_bool .
 ENDCLASS.
 
 
@@ -95,36 +94,41 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
 
 
   METHOD complete_heads_branch_name.
-    IF iv_branch_name CP 'refs/heads/*'.
+    IF iv_branch_name CP zif_abapgit_definitions=>c_git_branch-heads.
       rv_name = iv_branch_name.
     ELSE.
-      rv_name = 'refs/heads/' && iv_branch_name.
+      rv_name = zif_abapgit_definitions=>c_git_branch-heads_prefix && iv_branch_name.
     ENDIF.
   ENDMETHOD.
 
 
   METHOD constructor.
+
     parse_branch_list(
-      EXPORTING iv_data        = iv_data
-      IMPORTING et_list        = me->mt_branches
-                ev_head_symref = me->mv_head_symref ).
+      EXPORTING
+        iv_data        = iv_data
+      IMPORTING
+        et_list        = me->mt_branches
+        ev_head_symref = me->mv_head_symref ).
+
   ENDMETHOD.
 
 
   METHOD find_by_name.
 
     IF iv_branch_name IS INITIAL.
-      zcx_abapgit_exception=>raise( 'Branch name empty' ) ##NO_TEXT.
+      zcx_abapgit_exception=>raise( 'Branch name empty' ).
     ENDIF.
 
-    IF iv_branch_name CP |refs/tags/*|.
+    IF iv_branch_name CP zif_abapgit_definitions=>c_git_branch-tags.
       rs_branch = find_tag_by_name( iv_branch_name ).
     ELSE.
 
       READ TABLE mt_branches INTO rs_branch
         WITH KEY name = iv_branch_name.
       IF sy-subrc <> 0.
-        zcx_abapgit_exception=>raise( |Branch not found: { iv_branch_name }| ).
+        zcx_abapgit_exception=>raise( |Branch { get_display_name( iv_branch_name )
+          } not found. Use 'Branch' > 'Switch' to select a different branch| ).
       ENDIF.
 
     ENDIF.
@@ -145,10 +149,17 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
       READ TABLE mt_branches INTO rs_branch
         WITH KEY name = iv_branch_name.
       IF sy-subrc <> 0.
-        zcx_abapgit_exception=>raise( 'Branch not found' ) ##NO_TEXT.
+        zcx_abapgit_exception=>raise( 'Branch not found' ).
       ENDIF.
 
     ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD get_all.
+
+    rt_branches = mt_branches.
 
   ENDMETHOD.
 
@@ -167,10 +178,10 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
   METHOD get_display_name.
     rv_display_name = iv_branch_name.
 
-    IF rv_display_name CP 'refs/heads/*'.
-      REPLACE FIRST OCCURRENCE OF 'refs/heads/' IN rv_display_name WITH ''.
-    ELSEIF rv_display_name CP 'refs/tags/*'.
-      REPLACE FIRST OCCURRENCE OF 'refs/' IN rv_display_name WITH ''.
+    IF rv_display_name CP zif_abapgit_definitions=>c_git_branch-heads.
+      REPLACE FIRST OCCURRENCE OF zif_abapgit_definitions=>c_git_branch-heads_prefix IN rv_display_name WITH ''.
+    ELSEIF rv_display_name CP zif_abapgit_definitions=>c_git_branch-tags.
+      REPLACE FIRST OCCURRENCE OF zif_abapgit_definitions=>c_git_branch-prefix IN rv_display_name WITH ''.
     ENDIF.
 
   ENDMETHOD.
@@ -185,8 +196,8 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
     FIELD-SYMBOLS <ls_branch> LIKE LINE OF mt_branches.
 
     LOOP AT mt_branches ASSIGNING <ls_branch>
-                        WHERE type = zif_abapgit_definitions=>c_git_branch_type-lightweight_tag
-                           OR type = zif_abapgit_definitions=>c_git_branch_type-annotated_tag.
+        WHERE type = zif_abapgit_definitions=>c_git_branch_type-lightweight_tag
+        OR type = zif_abapgit_definitions=>c_git_branch_type-annotated_tag.
       APPEND <ls_branch> TO rt_tags.
     ENDLOOP.
 
@@ -201,12 +212,11 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
 
     rv_type = zif_abapgit_definitions=>c_git_branch_type-other.
 
-    IF iv_branch_name CP 'refs/heads/*' OR iv_branch_name = zif_abapgit_definitions=>c_head_name.
+    IF iv_branch_name CP zif_abapgit_definitions=>c_git_branch-heads OR
+       iv_branch_name = zif_abapgit_definitions=>c_head_name.
       rv_type = zif_abapgit_definitions=>c_git_branch_type-branch.
-      RETURN.
-    ENDIF.
 
-    IF iv_branch_name CP 'refs/tags/*'.
+    ELSEIF iv_branch_name CP zif_abapgit_definitions=>c_git_branch-tags.
 
       lv_annotated_tag_with_suffix = iv_branch_name && '^{}'.
 
@@ -218,22 +228,6 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
         rv_type = zif_abapgit_definitions=>c_git_branch_type-lightweight_tag.
       ENDIF.
 
-    ENDIF.
-
-  ENDMETHOD.
-
-
-  METHOD is_ignored.
-
-    IF iv_branch_name = 'refs/heads/gh-pages'. " Github pages
-      rv_ignore = abap_true.
-    ENDIF.
-
-    IF iv_branch_name CP 'refs/pull/*'
-        OR iv_branch_name CP 'refs/merge-requests/*'
-        OR iv_branch_name CP 'refs/keep-around/*'
-        OR iv_branch_name CP 'refs/tmp/*'.
-      rv_ignore = abap_true.
     ENDIF.
 
   ENDMETHOD.
@@ -278,12 +272,11 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
         lv_hash = lv_data+4.
         lv_name = lv_data+45.
       ELSEIF sy-tabix = 1 AND strlen( lv_data ) = 8 AND lv_data(8) = '00000000'.
-        zcx_abapgit_exception=>raise( 'No branches, create branch manually by adding file' ) ##NO_TEXT.
+        zcx_abapgit_exception=>raise( 'No branches, create branch manually by adding file' ).
       ELSE.
         CONTINUE.
       ENDIF.
 
-      CHECK is_ignored( lv_name ) = abap_false.
       ASSERT lv_name IS NOT INITIAL.
 
       APPEND INITIAL LINE TO et_list ASSIGNING <ls_branch>.
@@ -294,7 +287,7 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
                                            it_result            = lt_result
                                            iv_current_row_index = lv_current_row_index ).
       IF <ls_branch>-name = zif_abapgit_definitions=>c_head_name OR <ls_branch>-name = ev_head_symref.
-        <ls_branch>-is_head    = abap_true.
+        <ls_branch>-is_head = abap_true.
       ENDIF.
     ENDLOOP.
 

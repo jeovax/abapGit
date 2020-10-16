@@ -1,23 +1,43 @@
-CLASS lcl_gui_mock DEFINITION.
+CLASS ltcl_gui_mock DEFINITION FOR TESTING FINAL.
   PUBLIC SECTION.
     TYPES:
       BEGIN OF ty_cache_signature,
-        url TYPE string,
+        url  TYPE string,
         type TYPE string,
         data TYPE string,
       END OF ty_cache_signature.
-    DATA ms_last_cache_signature TYPE ty_cache_signature.
 
     INTERFACES zif_abapgit_gui_services.
+
+    METHODS get_asset RETURNING VALUE(rs_asset) TYPE ty_cache_signature.
+
+  PRIVATE SECTION.
+    DATA ms_last_cache_signature TYPE ty_cache_signature.
 ENDCLASS.
 
-CLASS lcl_gui_mock IMPLEMENTATION.
+CLASS ltcl_gui_mock IMPLEMENTATION.
   METHOD zif_abapgit_gui_services~cache_asset.
     ms_last_cache_signature-url  = iv_url.
     ms_last_cache_signature-type = iv_type && '/' && iv_subtype.
     ms_last_cache_signature-data = iv_text.
   ENDMETHOD.
+  METHOD zif_abapgit_gui_services~register_event_handler.
+  ENDMETHOD.
+  METHOD zif_abapgit_gui_services~get_current_page_name.
+  ENDMETHOD.
+  METHOD zif_abapgit_gui_services~get_hotkeys_ctl.
+  ENDMETHOD.
+  METHOD zif_abapgit_gui_services~get_html_parts.
+  ENDMETHOD.
+
+  METHOD get_asset.
+    rs_asset = ms_last_cache_signature.
+  ENDMETHOD.
 ENDCLASS.
+
+
+CLASS ltcl_html_processor_test DEFINITION DEFERRED.
+CLASS zcl_abapgit_gui_html_processor DEFINITION LOCAL FRIENDS ltcl_html_processor_test.
 
 CLASS ltcl_html_processor_test DEFINITION
   FOR TESTING
@@ -28,11 +48,11 @@ CLASS ltcl_html_processor_test DEFINITION
   PRIVATE SECTION.
     DATA mv_source TYPE string.
     DATA mo_cut TYPE REF TO zcl_abapgit_gui_html_processor.
-    DATA mo_gui_mock TYPE REF TO lcl_gui_mock.
+    DATA mo_gui_mock TYPE REF TO ltcl_gui_mock.
 
     METHODS render_html
       IMPORTING
-        iv_src TYPE string
+        iv_src         TYPE string
       RETURNING
         VALUE(rv_html) TYPE string.
 
@@ -41,7 +61,7 @@ CLASS ltcl_html_processor_test DEFINITION
     METHODS process_with_preserve FOR TESTING RAISING zcx_abapgit_exception.
     METHODS process_no_css FOR TESTING RAISING zcx_abapgit_exception.
     METHODS process_fails FOR TESTING RAISING zcx_abapgit_exception.
-
+    METHODS find_head_closing_tag FOR TESTING RAISING zcx_abapgit_exception.
 ENDCLASS.
 
 CLASS ltcl_html_processor_test IMPLEMENTATION.
@@ -56,9 +76,15 @@ CLASS ltcl_html_processor_test IMPLEMENTATION.
     DATA lo_asset_man TYPE REF TO zcl_abapgit_gui_asset_manager.
 
     CREATE OBJECT lo_asset_man.
-    lo_asset_man->register_asset( iv_url = 'css/style1.css' iv_type = 'text/css' iv_inline = 'dummy1' ).
-    lo_asset_man->register_asset( iv_url = 'css/style2.css' iv_type = 'text/css' iv_inline = 'dummy2' ).
-    lo_asset_man->register_asset( iv_url = 'css/style3.css' iv_type = 'text/css' iv_inline = 'dummy3' ).
+    lo_asset_man->register_asset( iv_url = 'css/style1.css'
+                                  iv_type = 'text/css'
+                                  iv_inline = 'dummy1' ).
+    lo_asset_man->register_asset( iv_url = 'css/style2.css'
+                                  iv_type = 'text/css'
+                                  iv_inline = 'dummy2' ).
+    lo_asset_man->register_asset( iv_url = 'css/style3.css'
+                                  iv_type = 'text/css'
+                                  iv_inline = 'dummy3' ).
 
     CREATE OBJECT mo_cut
       EXPORTING
@@ -105,15 +131,15 @@ CLASS ltcl_html_processor_test IMPLEMENTATION.
         `</html>\n`
       ) ).
 
-      " GUI call checks
+    " GUI call checks
     cl_abap_unit_assert=>assert_equals(
-      act = mo_gui_mock->ms_last_cache_signature-url
+      act = mo_gui_mock->get_asset( )-url
       exp = 'css/bundle.css' ).
     cl_abap_unit_assert=>assert_equals(
-      act = mo_gui_mock->ms_last_cache_signature-type
+      act = mo_gui_mock->get_asset( )-type
       exp = 'text/css' ).
     cl_abap_unit_assert=>assert_equals(
-      act = mo_gui_mock->ms_last_cache_signature-data
+      act = mo_gui_mock->get_asset( )-data
       exp = render_html( 'dummy1\ndummy2\ndummy3' ) ).
 
   ENDMETHOD.
@@ -170,6 +196,32 @@ CLASS ltcl_html_processor_test IMPLEMENTATION.
         cl_abap_unit_assert=>fail( ).
       CATCH zcx_abapgit_exception ##NO_HANDLER.
     ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD find_head_closing_tag.
+    "given
+    DATA: lv_head_end TYPE i,
+          lv_html     TYPE string.
+
+    lv_html = '<!DOCTYPE html><html><head><title>abapGit</title><link rel="stylesheet" type="text/css" ' &&
+              'href="css/common.css"><link rel="stylesheet" type="text/css" href="css/ag-icons.css">' &&
+              '<link rel="stylesheet" type="text/css" href="css/theme-default.css"><script type="text/javascript"' &&
+              ' src="js/common.js"></script></head>'.
+
+    "when
+    TRY.
+        lv_head_end = mo_cut->find_head_offset( iv_html = lv_html ).
+      CATCH zcx_abapgit_exception.
+        cl_abap_unit_assert=>fail( msg = 'HEAD closing tag could not be found' ).
+    ENDTRY.
+
+    "then
+    cl_abap_unit_assert=>assert_equals(
+          act = lv_head_end
+          exp = 299
+          msg = 'Head closing tag was not found' ).
 
   ENDMETHOD.
 

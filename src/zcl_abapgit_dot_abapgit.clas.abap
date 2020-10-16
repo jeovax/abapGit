@@ -120,15 +120,6 @@ CLASS ZCL_ABAPGIT_DOT_ABAPGIT IMPLEMENTATION.
     ls_data-starting_folder = '/src/'.
     ls_data-folder_logic    = zif_abapgit_dot_abapgit=>c_folder_logic-prefix.
 
-    APPEND '/.gitignore' TO ls_data-ignore.
-    APPEND '/LICENSE' TO ls_data-ignore.
-    APPEND '/README.md' TO ls_data-ignore.
-    APPEND '/package.json' TO ls_data-ignore.
-    APPEND '/.travis.yml' TO ls_data-ignore.
-    APPEND '/.gitlab-ci.yml' TO ls_data-ignore.
-    APPEND '/abaplint.json' TO ls_data-ignore.
-    APPEND '/azure-pipelines.yml' TO ls_data-ignore.
-
     CREATE OBJECT ro_dot_abapgit
       EXPORTING
         is_data = ls_data.
@@ -164,14 +155,10 @@ CLASS ZCL_ABAPGIT_DOT_ABAPGIT IMPLEMENTATION.
 
     lv_xml = iv_xml.
 
-* fix downward compatibility
-    REPLACE ALL OCCURRENCES OF '<_--28C_DATA_--29>' IN lv_xml WITH '<DATA>'.
-    REPLACE ALL OCCURRENCES OF '</_--28C_DATA_--29>' IN lv_xml WITH '</DATA>'.
-
     CALL TRANSFORMATION id
       OPTIONS value_handling = 'accept_data_loss'
       SOURCE XML lv_xml
-      RESULT data = rs_data ##NO_TEXT.
+      RESULT data = rs_data.
 
 * downward compatibility
     IF rs_data-folder_logic IS INITIAL.
@@ -228,20 +215,29 @@ CLASS ZCL_ABAPGIT_DOT_ABAPGIT IMPLEMENTATION.
     lv_name = iv_path && iv_filename.
 
     CONCATENATE ms_data-starting_folder '*' INTO lv_starting.
+
+    " Always allow .abapgit.xml and .apack-manifest.xml
     CONCATENATE '/' zif_abapgit_definitions=>c_dot_abapgit INTO lv_dot.
+    IF lv_name = lv_dot.
+      RETURN.
+    ENDIF.
+    CONCATENATE '/' zif_abapgit_apack_definitions=>c_dot_apack_manifest INTO lv_dot.
+    IF lv_name = lv_dot.
+      RETURN.
+    ENDIF.
 
+    " Ignore all files matching pattern in ignore list
     LOOP AT ms_data-ignore INTO lv_ignore.
-      FIND ALL OCCURRENCES OF '/' IN lv_name MATCH COUNT lv_count.
-
-      IF lv_name CP lv_ignore
-          OR ( ms_data-starting_folder <> '/'
-          AND lv_count > 1
-          AND NOT lv_name CP lv_starting
-          AND NOT lv_name = lv_dot ).
+      IF lv_name CP lv_ignore.
         rv_ignored = abap_true.
         RETURN.
       ENDIF.
     ENDLOOP.
+
+    " Ignore all files outside of starting folder tree
+    IF ms_data-starting_folder <> '/' AND NOT lv_name CP lv_starting.
+      rv_ignored = abap_true.
+    ENDIF.
 
   ENDMETHOD.
 
@@ -260,11 +256,19 @@ CLASS ZCL_ABAPGIT_DOT_ABAPGIT IMPLEMENTATION.
 
   METHOD serialize.
 
-    DATA: lv_xml TYPE string.
+    DATA: lv_xml  TYPE string,
+          lv_mark TYPE string.
 
     lv_xml = to_xml( ms_data ).
 
-    rv_xstr = zcl_abapgit_convert=>string_to_xstring_utf8( lv_xml ).
+    "unicode systems always add the byte order mark to the xml, while non-unicode does not
+    "this code will always add the byte order mark if it is not in the xml
+    lv_mark = zcl_abapgit_convert=>xstring_to_string_utf8( cl_abap_char_utilities=>byte_order_mark_utf8 ).
+    IF lv_xml(1) <> lv_mark.
+      CONCATENATE lv_mark lv_xml INTO lv_xml.
+    ENDIF.
+
+    rv_xstr = zcl_abapgit_convert=>string_to_xstring_utf8_bom( lv_xml ).
 
   ENDMETHOD.
 
