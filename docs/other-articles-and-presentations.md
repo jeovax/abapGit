@@ -132,3 +132,23 @@ Michael Pang
 [The journey to Git-based ABAP development: Part 2](https://blogs.sap.com/2020/03/31/the-journey-to-git-based-abap-development-part-2/), Marcello Urbani
 
 [The journey to Git-based ABAP development: Part 3](https://blogs.sap.com/2020/05/21/the-journey-to-git-based-abap-development-part-3/), Marcello Urbani
+
+[Inside Steampunk – Vital parts of Steampunk’s abapGit](https://blogs.sap.com/2020/10/07/inside-steampunk-vital-parts-of-steampunks-abapgit/), Andre Becker
+
+[Automatically generate issues from source code](https://blogs.sap.com/2020/10/20/automatically-generated-issues-from-source-code-abapgit/), Enno Wulff
+
+[CTS is beautiful](https://blogs.sap.com/2020/11/05/cts-is-beautiful/), Lars Hvam
+
+[abapGit and namespace](https://blogs.sap.com/2020/11/18/abapgit-and-namespace/), Michael Keller
+
+[Data exchange with your github repository using abapGit](https://blogs.sap.com/2020/11/24/data-exchange-with-your-github-repository-using-abapgit), Enno Wulff
+
+### 2021
+
+[Our Journey with SAP ERP DevOps Part 1/2](https://blogs.sap.com/2021/03/26/our-journey-with-sap-erp-devops-part-1-2/), Nestor Lara
+
+[Our Journey with SAP ERP DevOps Part 2/2](https://blogs.sap.com/2021/03/30/our-journey-with-sap-erp-devops-part-2-2/), Nestor Lara
+
+[ABAP Code Review Guideline is out](https://blogs.sap.com/2021/04/06/abap-code-review-guideline-is-out/), Christoph Pohl
+
+[Automagic standalone renaming of ABAP objects](https://blogs.sap.com/2021/04/20/automagic-standalone-renaming-of-abap-objects/]), Lars Hvam

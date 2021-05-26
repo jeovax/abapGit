@@ -15,6 +15,16 @@ CLASS zcl_abapgit_objects_bridge DEFINITION PUBLIC FINAL CREATE PUBLIC INHERITIN
   PRIVATE SECTION.
     DATA: mo_plugin TYPE REF TO object.
 
+    " Metadata with late_deser to stay compatible with old bridge
+    TYPES:
+      BEGIN OF ty_metadata,
+        class        TYPE string,
+        version      TYPE string,
+        late_deser   TYPE abap_bool,
+        delete_tadir TYPE abap_bool,
+        ddic         TYPE abap_bool,
+      END OF ty_metadata .
+
     TYPES: BEGIN OF ty_s_objtype_map,
              obj_typ      TYPE trobjtype,
              plugin_class TYPE seoclsname,
@@ -43,7 +53,8 @@ CLASS ZCL_ABAPGIT_OBJECTS_BRIDGE IMPLEMENTATION.
       FROM seometarel
       INTO TABLE lt_plugin_class
       WHERE refclsname LIKE 'ZCL_ABAPGITP_OBJECT%'
-      AND version = '1'.                                  "#EC CI_SUBRC
+      AND version = '1'
+      ORDER BY clsname.                                   "#EC CI_SUBRC
 
     CLEAR gt_objtype_map.
     LOOP AT lt_plugin_class INTO lv_plugin_class
@@ -164,9 +175,11 @@ CLASS ZCL_ABAPGIT_OBJECTS_BRIDGE IMPLEMENTATION.
 
   METHOD zif_abapgit_object~get_deserialize_steps.
 
-    DATA: ls_meta TYPE zif_abapgit_definitions=>ty_metadata.
+    DATA ls_meta TYPE ty_metadata.
 
-    ls_meta = zif_abapgit_object~get_metadata( ).
+    CALL METHOD mo_plugin->('ZIF_ABAPGITP_PLUGIN~GET_METADATA')
+      RECEIVING
+        rs_metadata = ls_meta.
 
     IF ls_meta-late_deser = abap_true.
       APPEND zif_abapgit_object=>gc_step_id-late TO rt_steps.
@@ -181,9 +194,13 @@ CLASS ZCL_ABAPGIT_OBJECTS_BRIDGE IMPLEMENTATION.
 
   METHOD zif_abapgit_object~get_metadata.
 
+    DATA ls_meta TYPE ty_metadata.
+
     CALL METHOD mo_plugin->('ZIF_ABAPGITP_PLUGIN~GET_METADATA')
       RECEIVING
-        rs_metadata = rs_metadata.
+        rs_metadata = ls_meta.
+
+    MOVE-CORRESPONDING ls_meta TO rs_metadata.
 
   ENDMETHOD.
 

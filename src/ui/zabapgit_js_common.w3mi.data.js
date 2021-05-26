@@ -100,13 +100,26 @@ function debugOutput(text, dstID) {
 // Use a pre-created form or create a hidden form
 // and submit with sapevent
 function submitSapeventForm(params, action, method) {
+
+  function getSapeventPrefix() {
+    if (document.querySelector('a[href*="file:///SAPEVENT:"]'))  {
+      return "file:///"; //Prefix for chromium based browser control
+    } else {
+      return "";
+    }
+  }
+
   var stub_form_id = "form_" + action;
   var form = document.getElementById(stub_form_id);
 
   if (form === null) {
     form = document.createElement("form");
     form.setAttribute("method", method || "post");
-    form.setAttribute("action", "sapevent:" + action);
+    if (/sapevent/i.test(action)){
+      form.setAttribute("action", action);
+    } else {
+      form.setAttribute("action", getSapeventPrefix() + "SAPEVENT:" + action);
+    }
   }
 
   for(var key in params) {
@@ -249,6 +262,16 @@ RepoOverViewHelper.prototype.toggleRepoListDetail = function (forceDisplay) {
 RepoOverViewHelper.prototype.toggleItemsDetail = function(forceDisplay){
   if (this.detailCssClass) {
     this.isDetailsDisplayed = forceDisplay || !this.isDetailsDisplayed;
+
+    // change layout to wide if details are displayed
+    if (this.isDetailsDisplayed) {
+      document.body.classList.remove("centered");
+      document.body.classList.add("full_width");
+    } else {
+      document.body.classList.add("centered");
+      document.body.classList.remove("full_width");
+    }
+
     this.detailCssClass.style.display = this.isDetailsDisplayed ? "" : "none";
     this.actionCssClass.style.display = this.isDetailsDisplayed ? "none" : "";
     var icon = document.getElementById("icon-filter-detail");
@@ -437,7 +460,6 @@ StageHelper.prototype.onPageLoad = function() {
   if (this.dom.objectSearch.value) {
     this.applyFilterValue(this.dom.objectSearch.value);
   }
-  debugOutput("StageHelper.onPageLoad: " + ((data) ? "from Storage" : "initial state"));
 };
 
 // Table event handler, change status
@@ -510,6 +532,8 @@ StageHelper.prototype.applyFilterToRow = function (row, filter) {
   // Collect data cells
   var targets = this.filterTargets.map(function(attr) {
     var elem = row.cells[this.colIndex[attr]];
+    if (elem.firstChild && elem.firstChild.tagName === "SPAN") elem = elem.firstChild;
+    if (elem.firstChild && elem.firstChild.tagName === "I") elem = elem.nextChild;
     if (elem.firstChild && elem.firstChild.tagName === "A") elem = elem.firstChild;
     return {
       elem:      elem,
@@ -674,9 +698,10 @@ StageHelper.prototype.iterateStageTab = function (changeMode, cb /*, ...*/) {
  * Check list wrapper
  **********************************************************/
 
-function CheckListWrapper(id, cbAction) {
+function CheckListWrapper(id, cbAction, cbActionOnlyMyChanges) {
   this.id         = document.getElementById(id);
   this.cbAction   = cbAction;
+  this.cbActionOnlyMyChanges = cbActionOnlyMyChanges;
   this.id.onclick = this.onClick.bind(this);
 }
 
@@ -709,8 +734,14 @@ CheckListWrapper.prototype.onClick = function(e) { // eslint-disable-line no-unu
     nodeLi.setAttribute("data-check", "");
   }
 
-  // Action callback
-  this.cbAction(nodeLi.getAttribute("data-aux"), option, newState);
+  // Action callback, special handling for "Only My Changes"
+  if(option === "Only my changes") {
+    this.cbActionOnlyMyChanges(nodeLi.getAttribute("data-aux"), newState);
+
+    // hide "Changed By" menu
+  } else {
+    this.cbAction(nodeLi.getAttribute("data-aux"), option, newState);
+  }
 };
 
 /**********************************************************
@@ -737,7 +768,7 @@ function DiffHelper(params) {
 
   // Checklist wrapper
   if (document.getElementById(params.ids.filterMenu)) {
-    this.checkList = new CheckListWrapper(params.ids.filterMenu, this.onFilter.bind(this));
+    this.checkList = new CheckListWrapper(params.ids.filterMenu, this.onFilter.bind(this), this.onFilterOnlyMyChanges.bind(this));
     this.dom.filterButton = document.getElementById(params.ids.filterMenu).parentNode;
   }
 
@@ -765,6 +796,71 @@ DiffHelper.prototype.onJump = function(e){
 DiffHelper.prototype.onFilter = function(attr, target, state) {
   this.applyFilter(attr, target, state);
   this.highlightButton(state);
+};
+
+DiffHelper.prototype.onFilterOnlyMyChanges = function(username, state) {
+  this.applyOnlyMyChangesFilter(username, state);
+  this.counter = 0;
+
+  if(state) {
+    this.dom.filterButton.classList.add("bgorange");
+  } else {
+    this.dom.filterButton.classList.remove("bgorange");
+  }
+
+  // apply logic on Changed By list items
+  var changedByListItems = Array.prototype.slice.call(document.querySelectorAll("[data-aux*=changed-by]"));
+
+  changedByListItems
+    .map(function(item) {
+      var nodeIcon = item.children[0].children[0];
+
+      if (state === true) {
+        if(item.innerText === username) { // current user
+          item.style.display = "";
+          item.setAttribute("data-check", "X");
+
+          if(nodeIcon) {
+            nodeIcon.classList.remove("grey");
+            nodeIcon.classList.add("blue");
+          }
+        } else { // other users
+          item.style.display = "none";
+          item.setAttribute("data-check", "");
+        }
+      } else {
+        item.style.display = "";
+        item.setAttribute("data-check", "X");
+
+        if(nodeIcon) {
+          nodeIcon.classList.remove("grey");
+          nodeIcon.classList.add("blue");
+        }
+      }
+    });
+};
+
+DiffHelper.prototype.applyOnlyMyChangesFilter = function (username, state) {
+
+  var jumpListItems = Array.prototype.slice.call(document.querySelectorAll("[id*=li_jump]"));
+
+  this.iterateDiffList(function(div) {
+    if (state === true) { // switching on "Only my changes" filter
+      if (div.getAttribute("data-changed-by") === username) {
+        div.style.display = state ? "" : "none";
+      } else {
+        div.style.display = state ? "none" : "";
+      }
+    } else { // disabling
+      div.style.display = "";
+    }
+
+    // hide the file in the jump list
+    var dataFile = div.getAttribute("data-file");
+    jumpListItems
+      .filter(function(item){ return dataFile.includes(item.text) })
+      .map(function(item){ item.style.display = div.style.display });
+  });
 };
 
 // Hide/show diff based on params
@@ -1289,7 +1385,7 @@ function Hotkeys(oKeyMap){
     var action = this.oKeyMap[sKey];
 
     // add a tooltip/title with the hotkey, currently only sapevents are supported
-    [].slice.call(document.querySelectorAll("a[href^='sapevent:" + action + "']")).forEach(function(elAnchor) {
+    this.getAllSapEventsForSapEventName(action).forEach(function(elAnchor) {
       elAnchor.title = elAnchor.title + " [" + sKey + "]";
     });
 
@@ -1319,9 +1415,9 @@ function Hotkeys(oKeyMap){
       }
 
       // Or a SAP event
-      var sUiSapEvent = this.getSapEvent(action);
-      if (sUiSapEvent) {
-        submitSapeventForm({}, sUiSapEvent, "post");
+      var sUiSapEventHref = this.getSapEventHref(action);
+      if (sUiSapEventHref) {
+        submitSapeventForm({}, sUiSapEventHref, "post");
         oEvent.preventDefault();
         return;
       }
@@ -1340,26 +1436,21 @@ Hotkeys.prototype.showHotkeys = function() {
   }
 };
 
-Hotkeys.prototype.getSapEvent = function(sSapEvent) {
+Hotkeys.prototype.getAllSapEventsForSapEventName = function(sSapEvent) {
+  return [].slice.call(document.querySelectorAll('a[href*="sapevent:' + sSapEvent + '"], a[href*="SAPEVENT:' + sSapEvent + '"]'));
+};
 
-  var fnNormalizeSapEventHref = function(sSapEvent, oSapEvent) {
-    if (new RegExp(sSapEvent + "$" ).test(oSapEvent.href)
-    || (new RegExp(sSapEvent + "\\?" ).test(oSapEvent.href))) {
-      return oSapEvent.href.replace("sapevent:","");
-    }
-  };
+Hotkeys.prototype.getSapEventHref = function(sSapEvent) {
 
-  var aSapEvents = document.querySelectorAll('a[href^="sapevent:' + sSapEvent + '"]');
-
-  var aFilteredAndNormalizedSapEvents =
-    [].map.call(aSapEvents, function(oSapEvent){
-      return fnNormalizeSapEventHref(sSapEvent, oSapEvent);
-    }).filter(function(elem){
-      // remove false positives
-      return (elem && !elem.includes("sapevent:"));
-    });
-
-  return (aFilteredAndNormalizedSapEvents && aFilteredAndNormalizedSapEvents[0]);
+  return this.getAllSapEventsForSapEventName(sSapEvent)
+    .map(function(oSapEvent){
+      return oSapEvent.href;
+    })
+    .filter(function(sapEventHref){
+      // eliminate false positives
+      return sapEventHref.match(new RegExp("\\b" + sSapEvent + "\\b"));
+    })
+    .pop();
 
 };
 
@@ -2022,7 +2113,12 @@ function enumerateToolbarActions() {
       if (item.nodeName !== "LI") continue; // unexpected node
       if (item.children.length >=2 && item.children[1].nodeName === "UL") {
         // submenu detected
-        processUL(item.children[1], item.children[0].innerText);
+        var menutext = item.children[0].innerText;
+        // special treatment for menus without text
+        if (!menutext) {
+          menutext = item.children[0].getAttribute("title");
+        }
+        processUL(item.children[1], menutext);
       } else if (item.firstElementChild && item.firstElementChild.nodeName === "A") {
         var anchor = item.firstElementChild;
         if (anchor.href && anchor.href !== "#") items.push([anchor, prefix]);
@@ -2042,7 +2138,7 @@ function enumerateToolbarActions() {
     var prefix = item[1];
     return {
       action:    anchor.href.replace("sapevent:", ""),
-      title:     (prefix ? prefix + ": " : "") + anchor.innerText
+      title:     (prefix ? prefix + ": " : "") + anchor.innerText.trim()
     };
   });
 
@@ -2063,6 +2159,8 @@ function enumerateJumpAllFiles() {
         title:  title
       };});
 }
+
+/* Save Scroll Position for Diff/Patch Page */
 
 function saveScrollPosition(){
   if (!window.sessionStorage) { return }

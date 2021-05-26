@@ -22,7 +22,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_OBJECT_VCLS IMPLEMENTATION.
+CLASS zcl_abapgit_object_vcls IMPLEMENTATION.
 
 
   METHOD check_lock.
@@ -113,7 +113,7 @@ CLASS ZCL_ABAPGIT_OBJECT_VCLS IMPLEMENTATION.
     IF sy-subrc = 1.
       zcx_abapgit_exception=>raise( 'Cancelled' ).
     ELSEIF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'error from RS_CORR_INSERT' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     lv_objectname = ls_vcldir_entry-vclname.
@@ -131,7 +131,7 @@ CLASS ZCL_ABAPGIT_OBJECT_VCLS IMPLEMENTATION.
         object_enqueue_failed = 5
         OTHERS                = 6.
     IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'error in OBJ_GENERATE for VCLS' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
   ENDMETHOD.
@@ -184,8 +184,8 @@ CLASS ZCL_ABAPGIT_OBJECT_VCLS IMPLEMENTATION.
       lv_argument       TYPE seqg3-garg,
       lv_argument_langu TYPE seqg3-garg.
 
-    lv_argument       = me->ms_item-obj_name.
-    lv_argument_langu = |@{ me->ms_item-obj_name }|.
+    lv_argument       = ms_item-obj_name.
+    lv_argument_langu = |@{ ms_item-obj_name }|.
 
     "Check all relevant maintein tabeles for view clusters
     IF check_lock( iv_tabname = 'VCLDIR'
@@ -292,7 +292,7 @@ CLASS ZCL_ABAPGIT_OBJECT_VCLS IMPLEMENTATION.
         incomplete_viewcluster = 2
         OTHERS                 = 3.
     IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'error in VIEWCLUSTER_GET_DEFINITION' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     SORT lt_vclstrudep BY vclname object objfield.

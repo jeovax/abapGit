@@ -78,6 +78,44 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD copy_manifest_descriptor.
+
+    DATA: ls_my_manifest_wo_deps TYPE zif_abapgit_apack_definitions=>ty_descriptor_wo_dependencies,
+          ls_my_dependency       TYPE zif_abapgit_apack_definitions=>ty_dependency,
+          ls_descriptor          TYPE zif_abapgit_apack_definitions=>ty_descriptor,
+          lv_descriptor_cust     TYPE string,
+          lv_descriptor_sap      TYPE string.
+
+    FIELD-SYMBOLS: <lg_descriptor>   TYPE any,
+                   <lt_dependencies> TYPE ANY TABLE,
+                   <lg_dependency>   TYPE any.
+
+    lv_descriptor_cust = zif_abapgit_apack_definitions=>c_apack_interface_cust && '~DESCRIPTOR'.
+    lv_descriptor_sap  = zif_abapgit_apack_definitions=>c_apack_interface_sap && '~DESCRIPTOR'.
+
+    ASSIGN io_manifest_provider->(lv_descriptor_cust) TO <lg_descriptor>.
+    IF <lg_descriptor> IS NOT ASSIGNED.
+      ASSIGN io_manifest_provider->(lv_descriptor_sap) TO <lg_descriptor>.
+    ENDIF.
+    IF <lg_descriptor> IS ASSIGNED.
+      " A little more complex than a normal MOVE-CORRSPONDING
+      " to avoid dumps in case of future updates to the dependencies table structure
+      ASSIGN COMPONENT 'DEPENDENCIES' OF STRUCTURE <lg_descriptor> TO <lt_dependencies>.
+      IF <lt_dependencies> IS ASSIGNED.
+        LOOP AT <lt_dependencies> ASSIGNING <lg_dependency>.
+          MOVE-CORRESPONDING <lg_dependency> TO ls_my_dependency.
+          INSERT ls_my_dependency INTO TABLE ls_descriptor-dependencies.
+        ENDLOOP.
+        MOVE-CORRESPONDING <lg_descriptor> TO ls_my_manifest_wo_deps.
+        MOVE-CORRESPONDING ls_my_manifest_wo_deps TO ls_descriptor.
+      ENDIF.
+    ENDIF.
+
+    set_manifest_descriptor( ls_descriptor ).
+
+  ENDMETHOD.
+
+
   METHOD create_instance.
     CREATE OBJECT ro_manifest_reader
       EXPORTING
@@ -98,6 +136,20 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
 
     ro_manifest_reader = create_instance( iv_package_name ).
     ro_manifest_reader->set_manifest_descriptor( ls_data ).
+
+  ENDMETHOD.
+
+
+  METHOD format_version.
+
+    FIELD-SYMBOLS: <ls_dependency> TYPE zif_abapgit_apack_definitions=>ty_dependency.
+
+    TRANSLATE ms_cached_descriptor-version TO LOWER CASE.
+    ms_cached_descriptor-sem_version = zcl_abapgit_version=>conv_str_to_version( ms_cached_descriptor-version ).
+
+    LOOP AT ms_cached_descriptor-dependencies ASSIGNING <ls_dependency>.
+      <ls_dependency>-sem_version = zcl_abapgit_version=>conv_str_to_version( <ls_dependency>-version ).
+    ENDLOOP.
 
   ENDMETHOD.
 
@@ -128,8 +180,8 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
          WHERE tadir~pgmid = 'R3TR' AND
                tadir~object = 'CLAS' AND
                seometarel~version = '1' AND
-               seometarel~refclsname = 'ZIF_APACK_MANIFEST' AND
-               tadir~devclass = me->mv_package_name.
+               seometarel~refclsname = zif_abapgit_apack_definitions=>c_apack_interface_cust AND
+               tadir~devclass = mv_package_name.
       IF ls_manifest_implementation IS INITIAL.
         SELECT SINGLE seometarel~clsname tadir~devclass FROM seometarel "#EC CI_NOORDER
            INNER JOIN tadir ON seometarel~clsname = tadir~obj_name "#EC CI_BUFFJOIN
@@ -137,8 +189,8 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
            WHERE tadir~pgmid = 'R3TR' AND
                  tadir~object = 'CLAS' AND
                  seometarel~version = '1' AND
-                 seometarel~refclsname = 'IF_APACK_MANIFEST' AND
-                 tadir~devclass = me->mv_package_name.
+                 seometarel~refclsname = zif_abapgit_apack_definitions=>c_apack_interface_sap AND
+                 tadir~devclass = mv_package_name.
       ENDIF.
       IF ls_manifest_implementation IS NOT INITIAL.
         TRY.
@@ -147,7 +199,7 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
             CLEAR: rs_manifest_descriptor.
         ENDTRY.
         IF lo_manifest_provider IS BOUND.
-          me->copy_manifest_descriptor( io_manifest_provider = lo_manifest_provider ).
+          copy_manifest_descriptor( lo_manifest_provider ).
         ENDIF.
       ENDIF.
 
@@ -155,7 +207,7 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
 
     ENDIF.
 
-    rs_manifest_descriptor = me->ms_cached_descriptor.
+    rs_manifest_descriptor = ms_cached_descriptor.
   ENDMETHOD.
 
 
@@ -178,52 +230,4 @@ CLASS zcl_abapgit_apack_reader IMPLEMENTATION.
     ms_cached_descriptor = is_manifest_descriptor.
     format_version( ).
   ENDMETHOD.
-
-  METHOD copy_manifest_descriptor.
-
-    DATA: ls_my_manifest_wo_deps TYPE zif_abapgit_apack_definitions=>ty_descriptor_wo_dependencies,
-          ls_my_dependency       TYPE zif_abapgit_apack_definitions=>ty_dependency,
-          ls_descriptor          TYPE zif_abapgit_apack_definitions=>ty_descriptor.
-
-    FIELD-SYMBOLS: <lg_descriptor>   TYPE any,
-                   <lt_dependencies> TYPE ANY TABLE,
-                   <lg_dependency>   TYPE any.
-
-    ASSIGN io_manifest_provider->('ZIF_APACK_MANIFEST~DESCRIPTOR') TO <lg_descriptor>.
-    IF <lg_descriptor> IS NOT ASSIGNED.
-      ASSIGN io_manifest_provider->('IF_APACK_MANIFEST~DESCRIPTOR') TO <lg_descriptor>.
-    ENDIF.
-    IF <lg_descriptor> IS ASSIGNED.
-      " A little more complex than a normal MOVE-CORRSPONDING
-      " to avoid dumps in case of future updates to the dependencies table structure
-      ASSIGN COMPONENT 'DEPENDENCIES' OF STRUCTURE <lg_descriptor> TO <lt_dependencies>.
-      IF <lt_dependencies> IS ASSIGNED.
-        LOOP AT <lt_dependencies> ASSIGNING <lg_dependency>.
-          MOVE-CORRESPONDING <lg_dependency> TO ls_my_dependency.
-          INSERT ls_my_dependency INTO TABLE ls_descriptor-dependencies.
-        ENDLOOP.
-        MOVE-CORRESPONDING <lg_descriptor> TO ls_my_manifest_wo_deps.
-        MOVE-CORRESPONDING ls_my_manifest_wo_deps TO ls_descriptor.
-      ENDIF.
-    ENDIF.
-
-    set_manifest_descriptor( ls_descriptor ).
-
-  ENDMETHOD.
-
-
-  METHOD format_version.
-
-    FIELD-SYMBOLS: <ls_dependency> TYPE zif_abapgit_apack_definitions=>ty_dependency.
-
-    TRANSLATE ms_cached_descriptor-version TO LOWER CASE.
-    ms_cached_descriptor-sem_version = zcl_abapgit_version=>conv_str_to_version( ms_cached_descriptor-version ).
-
-    LOOP AT ms_cached_descriptor-dependencies ASSIGNING <ls_dependency>.
-      <ls_dependency>-sem_version = zcl_abapgit_version=>conv_str_to_version( <ls_dependency>-version ).
-    ENDLOOP.
-
-  ENDMETHOD.
-
-
 ENDCLASS.

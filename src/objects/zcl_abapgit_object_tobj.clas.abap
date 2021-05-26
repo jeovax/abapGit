@@ -41,7 +41,8 @@ CLASS ZCL_ABAPGIT_OBJECT_TOBJ IMPLEMENTATION.
     SELECT SINGLE * FROM tvdir INTO rs_tobj-tvdir WHERE tabname = iv_tabname.
     CLEAR: rs_tobj-tvdir-gendate, rs_tobj-tvdir-gentime, rs_tobj-tvdir-devclass.
 
-    SELECT * FROM tvimf INTO TABLE rs_tobj-tvimf WHERE tabname = iv_tabname.
+    SELECT * FROM tvimf INTO TABLE rs_tobj-tvimf WHERE tabname = iv_tabname
+      ORDER BY PRIMARY KEY.
 
   ENDMETHOD.
 
@@ -226,7 +227,6 @@ CLASS ZCL_ABAPGIT_OBJECT_TOBJ IMPLEMENTATION.
 
   METHOD zif_abapgit_object~get_metadata.
     rs_metadata = get_metadata( ).
-    rs_metadata-late_deser = abap_true.
     rs_metadata-delete_tadir = abap_true.
   ENDMETHOD.
 
@@ -300,7 +300,7 @@ CLASS ZCL_ABAPGIT_OBJECT_TOBJ IMPLEMENTATION.
     IF sy-subrc = 1.
       RETURN.
     ELSEIF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'error from CTO_OBJECT_GET' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     CLEAR: ls_objh-luser,

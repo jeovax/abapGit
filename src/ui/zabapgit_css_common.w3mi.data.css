@@ -7,6 +7,16 @@
 body {
   overflow-x: hidden;
 }
+
+body.centered {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+body.full_width {
+  width:100%;
+}
+
 a, a:visited {
   text-decoration:  none;
 }
@@ -67,6 +77,8 @@ span.separator {
 .nodisplay    { display: none }
 .m-em5-sides  { margin-left: 0.5em; margin-right: 0.5em }
 .w600px       { width: 600px }
+.w800px       { width: 800px }
+.w1000px      { width: 1000px }
 .wmax600px    { max-width: 600px }
 .auto-center  { /* use with max-width */
   width: 100%;
@@ -183,7 +195,11 @@ div.repo {
   padding: 4px 2px 3px 2px;
 }
 
-span.branch {
+/* ABAPGIT OBJECTS */
+span.branch,
+span.user-box,
+span.package-box,
+span.transport-box {
   padding: 2px 4px;
   border: 1px solid;
   border-radius: 4px;
@@ -196,6 +212,7 @@ span.branch {
   width: 0;
   padding: 0;
   margin: 0;
+  position: absolute;
   overflow: hidden;
 }
 
@@ -203,7 +220,7 @@ span.branch {
 /* STATE BLOCK COMMON*/
 span.state-block {
   margin-left: 1em;
-  font-family: Consolas, Lucida Console, Courier, monospace;
+  font-family: Consolas, "Lucida Console", Courier, monospace;
   font-size: x-small;
   vertical-align: 13%;
   display: inline-block;
@@ -385,11 +402,6 @@ span.diff_name {
 }
 span.diff_changed_by {
   float: right;
-}
-span.diff_changed_by span.user {
-  border-radius: 3px;
-  border: solid 1px;
-  padding: 1px 0.4em;
 }
 span.diff_banner {
   border-style: solid;
@@ -775,8 +787,12 @@ div.info-panel div.info-list {
   padding: 0.8em 0.7em 1em;
 }
 
-div.info-panel li {
+div.info-panel ul {
   padding-left: 10px;
+}
+
+div.info-panel li {
+  padding-left: 0px;
   list-style-type: none;
 }
 
@@ -835,7 +851,7 @@ div.message-panel {
 }
 
 div.message-panel:hover .message-panel-commands {
-  display: block
+  display: block;
 }
 
 /* Tooltip text */
@@ -1007,6 +1023,10 @@ table.commit tr .title {
   margin-right: 10px;
 }
 
+.cmd-palette li .icon:before {
+  width: 1.1em;
+}
+
 /* SETTINGS */
 
 table.settings_tab {
@@ -1033,10 +1053,21 @@ settings_tab tr:first-child td { border-top: 0px; }
 /* DIALOGS */
 
 .dialog {
+  margin: 0 auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
   border: 1px solid;
   padding: 1em 1em;
   border-radius: 6px;
   text-align: left;
+}
+.dialog-form {
+  width: 600px;
+}
+.dialog-form-center {
+  margin: 1em auto 1em;
+  max-width: 600px;
+  width: 100%;
 }
 .dialog ul {
   padding: 0;
@@ -1093,8 +1124,19 @@ settings_tab tr:first-child td { border-top: 0px; }
 }
 .dialog input[type="text"] {
   width: 100%;
-  box-sizing : border-box;
+  box-sizing: border-box;
   height: 2.5em;
+}
+.dialog input[type="number"] {
+  width: 25%;
+  box-sizing: border-box;
+  height: 2.5em;
+}
+.dialog textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  font-family: Arial,Helvetica,sans-serif;
 }
 .dialog .radio-container input[type="radio"] {
   visibility: hidden;
@@ -1114,6 +1156,24 @@ settings_tab tr:first-child td { border-top: 0px; }
 .dialog .radio-container input[type="radio"]:checked + label {
   border: 1px solid transparent;
 }
+.dialog table {
+  width: 100%;
+}
+.dialog table thead td {
+  font-size: 14px;
+  height: 2.5em;
+  background-color: #ddd;
+  border: 1px solid #ccc;
+  padding: 0px 10px;
+}
+.dialog table tbody td {
+  border: 1px solid #ccc;
+  background-color: white;
+}
+.dialog table td input {
+  border: 0px;
+  background: none;
+}
 .dialog li.with-command div.input-container {
   display: table-cell;
   width: 100%;
@@ -1127,6 +1187,9 @@ settings_tab tr:first-child td { border-top: 0px; }
 .dialog fieldset {
   margin-top: 1em;
   border: 1px solid;
+  border-right: none;
+  border-left: none;
+  border-bottom: none;
   border-radius: 6px; /* doesn't work in IE ? */
   padding-bottom: 1em;
 }
@@ -1134,13 +1197,11 @@ settings_tab tr:first-child td { border-top: 0px; }
   margin-top: 0;
 }
 .dialog fieldset legend {
-  font-size: small;
-  text-transform: uppercase;
+  font-size: large;
+  font-weight: bold;
   padding-left: 0.5em;
   padding-right: 0.5em;
 }
-
-/* This icon is slightly wider than other icons */
-.icon-cloud-upload-alt {
-    padding-right: 5px;
+.dialog .dialog-help {
+  float: left;
 }

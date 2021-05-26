@@ -82,7 +82,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_GUI_PAGE_COMMIT IMPLEMENTATION.
+CLASS zcl_abapgit_gui_page_commit IMPLEMENTATION.
 
 
   METHOD constructor.
@@ -198,8 +198,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_COMMIT IMPLEMENTATION.
     ri_html->add( '<div class="repo">' ).
     ri_html->add( zcl_abapgit_gui_chunk_lib=>render_repo_top(
       io_repo         = mo_repo
-      iv_show_package = abap_false
-      iv_branch       = mo_repo->get_branch_name( ) ) ).
+      iv_show_package = abap_false ) ).
 
     ri_html->add( render_menu( ) ).
     ri_html->add( render_form( ) ).
@@ -237,8 +236,8 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_COMMIT IMPLEMENTATION.
       lv_user  = li_user->get_default_git_user_name( ).
     ENDIF.
     IF lv_user IS INITIAL.
-      " get default from user master record
-      lv_user = zcl_abapgit_user_master_record=>get_instance( sy-uname )->get_name( ).
+      " get default from user record
+      lv_user = zcl_abapgit_user_record=>get_instance( sy-uname )->get_name( ).
     ENDIF.
 
     lv_email = li_user->get_repo_git_user_email( mo_repo->get_url( ) ).
@@ -246,8 +245,8 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_COMMIT IMPLEMENTATION.
       lv_email = li_user->get_default_git_user_email( ).
     ENDIF.
     IF lv_email IS INITIAL.
-      " get default from user master record
-      lv_email = zcl_abapgit_user_master_record=>get_instance( sy-uname )->get_email( ).
+      " get default from user record
+      lv_email = zcl_abapgit_user_record=>get_instance( sy-uname )->get_email( ).
     ENDIF.
 
     IF ms_commit IS NOT INITIAL.

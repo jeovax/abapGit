@@ -53,7 +53,8 @@ CLASS ZCL_ABAPGIT_GUI_ASSET_MANAGER IMPLEMENTATION.
     DATA: ls_key    TYPE wwwdatatab,
           lv_size_c TYPE wwwparams-value,
           lv_size   TYPE i,
-          lt_w3mime TYPE STANDARD TABLE OF w3mime.
+          lt_w3mime TYPE STANDARD TABLE OF w3mime,
+          ls_w3mime LIKE LINE OF lt_w3mime.
 
     ls_key-relid = 'MI'.
     ls_key-objid = iv_mime_name.
@@ -89,9 +90,10 @@ CLASS ZCL_ABAPGIT_GUI_ASSET_MANAGER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    rv_xdata = zcl_abapgit_convert=>bintab_to_xstring(
-      iv_size   = lv_size
-      it_bintab = lt_w3mime ).
+    LOOP AT lt_w3mime INTO ls_w3mime.
+      CONCATENATE rv_xdata ls_w3mime-line INTO rv_xdata IN BYTE MODE.
+    ENDLOOP.
+    rv_xdata = rv_xdata(lv_size).
 
   ENDMETHOD.
 
@@ -156,7 +158,7 @@ CLASS ZCL_ABAPGIT_GUI_ASSET_MANAGER IMPLEMENTATION.
   METHOD zif_abapgit_gui_asset_manager~get_text_asset.
 
     DATA ls_asset TYPE zif_abapgit_gui_asset_manager~ty_web_asset.
-    ls_asset = me->zif_abapgit_gui_asset_manager~get_asset( iv_url ).
+    ls_asset = zif_abapgit_gui_asset_manager~get_asset( iv_url ).
 
     IF ls_asset-type <> 'text'.
       zcx_abapgit_exception=>raise( |Not a text asset: { iv_url }| ).

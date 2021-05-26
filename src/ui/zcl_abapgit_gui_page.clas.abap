@@ -13,8 +13,15 @@ CLASS zcl_abapgit_gui_page DEFINITION PUBLIC ABSTRACT
 
   PROTECTED SECTION.
 
+    CONSTANTS:
+      BEGIN OF c_page_layout,
+        centered   TYPE string VALUE `centered`,
+        full_width TYPE string VALUE `full_width`,
+      END OF c_page_layout.
+
     TYPES:
       BEGIN OF ty_control,
+        page_layout TYPE string,
         page_title TYPE string,
         page_menu  TYPE REF TO zcl_abapgit_html_toolbar,
       END OF  ty_control .
@@ -22,7 +29,7 @@ CLASS zcl_abapgit_gui_page DEFINITION PUBLIC ABSTRACT
     DATA ms_control TYPE ty_control .
 
     METHODS render_content
-          ABSTRACT
+      ABSTRACT
       RETURNING
         VALUE(ri_html) TYPE REF TO zif_abapgit_html
       RAISING
@@ -77,13 +84,14 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_GUI_PAGE IMPLEMENTATION.
+CLASS zcl_abapgit_gui_page IMPLEMENTATION.
 
 
   METHOD constructor.
 
     super->constructor( ).
     mo_settings = zcl_abapgit_persist_settings=>get_instance( )->read( ).
+    ms_control-page_layout = c_page_layout-centered.
 
   ENDMETHOD.
 
@@ -135,7 +143,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE IMPLEMENTATION.
         ri_html->add( '<link rel="stylesheet" type="text/css" href="css/theme-belize-blue.css">' ).
     ENDCASE.
 
-    ri_html->add( '<script type="text/javascript" src="js/common.js"></script>' ).
+    ri_html->add( '<script src="js/common.js"></script>' ).
 
     CASE mo_settings->get_icon_scaling( ). " Enforce icon scaling
       WHEN mo_settings->c_icon_scaling-large.
@@ -313,9 +321,9 @@ CLASS ZCL_ABAPGIT_GUI_PAGE IMPLEMENTATION.
     CREATE OBJECT ri_html TYPE zcl_abapgit_html.
 
     ri_html->add( '<!DOCTYPE html>' ).
-    ri_html->add( '<html>' ).
+    ri_html->add( '<html lang="en">' ).
     ri_html->add( html_head( ) ).
-    ri_html->add( '<body>' ).
+    ri_html->add( |<body class="{ ms_control-page_layout }">| ).
     ri_html->add( title( ) ).
 
     ri_html->add( render_content( ) ). " TODO -> render child
@@ -328,17 +336,17 @@ CLASS ZCL_ABAPGIT_GUI_PAGE IMPLEMENTATION.
       iv_part_category = c_html_parts-hidden_forms ).
 
     ri_html->add( footer( ) ).
-    ri_html->add( '</body>' ).
 
     li_script = scripts( ).
 
     IF li_script IS BOUND AND li_script->is_empty( ) = abap_false.
-      ri_html->add( '<script type="text/javascript">' ).
+      ri_html->add( '<script>' ).
       ri_html->add( li_script ).
       ri_html->add( 'confirmInitialized();' ).
       ri_html->add( '</script>' ).
     ENDIF.
 
+    ri_html->add( '</body>' ).
     ri_html->add( '</html>' ).
 
   ENDMETHOD.

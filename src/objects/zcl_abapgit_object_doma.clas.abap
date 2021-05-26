@@ -46,7 +46,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
+CLASS zcl_abapgit_object_doma IMPLEMENTATION.
 
 
   METHOD deserialize_texts.
@@ -120,7 +120,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
           put_refused       = 5
           OTHERS            = 6.
       IF sy-subrc <> 0.
-        zcx_abapgit_exception=>raise( 'error from DDIF_DOMA_PUT @TEXTS' ).
+        zcx_abapgit_exception=>raise_t100( ).
       ENDIF.
     ENDLOOP.
 
@@ -143,13 +143,13 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
                    <ls_dd01_text> LIKE LINE OF lt_dd01_texts,
                    <ls_dd07_text> LIKE LINE OF lt_dd07_texts.
 
-    IF ii_xml->i18n_params( )-serialize_master_lang_only = abap_true.
+    IF ii_xml->i18n_params( )-main_language_only = abap_true.
       RETURN.
     ENDIF.
 
     lv_name = ms_item-obj_name.
 
-    " Collect additional languages, skip master lang - it was serialized already
+    " Collect additional languages, skip main lang - it was serialized already
     SELECT DISTINCT ddlanguage AS langu INTO TABLE lt_i18n_langs
       FROM dd01v
       WHERE domname = lv_name
@@ -177,7 +177,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
       APPEND INITIAL LINE TO lt_dd01_texts ASSIGNING <ls_dd01_text>.
       MOVE-CORRESPONDING ls_dd01v TO <ls_dd01_text>.
 
-      " Process master language entries and find corresponding translation
+      " Process main language entries and find corresponding translation
       LOOP AT it_dd07v ASSIGNING <ls_dd07v> WHERE NOT ddlanguage IS INITIAL.
         APPEND INITIAL LINE TO lt_dd07_texts ASSIGNING <ls_dd07_text>.
         READ TABLE lt_dd07v ASSIGNING <ls_dd07v_tmp>
@@ -186,6 +186,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
           MOVE-CORRESPONDING <ls_dd07v_tmp> TO <ls_dd07_text>.
         ELSE.
           " no translation -> keep entry but clear texts
+          MOVE-CORRESPONDING <ls_dd07v> TO <ls_dd07_text>.
           <ls_dd07_text>-ddlanguage = <lv_lang>.
           CLEAR: <ls_dd07_text>-ddtext, <ls_dd07_text>-domval_ld, <ls_dd07_text>-domval_hd.
         ENDIF.
@@ -281,7 +282,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
         put_refused       = 5
         OTHERS            = 6.
     IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'error from DDIF_DOMA_PUT' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     deserialize_texts( ii_xml   = io_xml
@@ -335,8 +336,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
 
   METHOD zif_abapgit_object~jump.
 
-    jump_se11( iv_radio = 'RSRD1-DOMA'
-               iv_field = 'RSRD1-DOMA_VAL' ).
+    jump_se11( ).
 
   ENDMETHOD.
 
@@ -362,8 +362,12 @@ CLASS ZCL_ABAPGIT_OBJECT_DOMA IMPLEMENTATION.
       EXCEPTIONS
         illegal_input = 1
         OTHERS        = 2.
-    IF sy-subrc <> 0 OR ls_dd01v IS INITIAL.
-      zcx_abapgit_exception=>raise( 'error from DDIF_DOMA_GET' ).
+    IF sy-subrc <> 0.
+      zcx_abapgit_exception=>raise_t100( ).
+    ENDIF.
+
+    IF ls_dd01v IS INITIAL.
+      zcx_abapgit_exception=>raise( |No active version found for { ms_item-obj_type } { ms_item-obj_name }| ).
     ENDIF.
 
     CLEAR: ls_dd01v-as4user,

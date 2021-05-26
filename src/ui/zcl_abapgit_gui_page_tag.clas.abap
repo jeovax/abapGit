@@ -60,7 +60,7 @@ CLASS zcl_abapgit_gui_page_tag DEFINITION PUBLIC FINAL
         zcx_abapgit_exception .
     METHODS parse_change_tag_type_request
       IMPORTING
-        !it_postdata TYPE cnht_post_data_tab .
+        !it_postdata TYPE zif_abapgit_html_viewer=>ty_post_data .
     METHODS render_scripts
       RETURNING
         VALUE(ri_html) TYPE REF TO zif_abapgit_html
@@ -136,14 +136,11 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_TAG IMPLEMENTATION.
 
   METHOD parse_change_tag_type_request.
 
-    FIELD-SYMBOLS: <lv_postdata> TYPE cnht_post_data_line.
+    FIELD-SYMBOLS <lv_postdata> LIKE LINE OF it_postdata.
 
-    READ TABLE it_postdata ASSIGNING <lv_postdata>
-                           INDEX 1.
+    READ TABLE it_postdata ASSIGNING <lv_postdata> INDEX 1.
     IF sy-subrc = 0.
-      FIND FIRST OCCURRENCE OF REGEX `type=(.*)`
-           IN <lv_postdata>
-           SUBMATCHES mv_selected_type.
+      FIND FIRST OCCURRENCE OF REGEX `type=(.*)` IN <lv_postdata> SUBMATCHES mv_selected_type.
     ENDIF.
 
     mv_selected_type = condense( mv_selected_type ).
@@ -203,8 +200,8 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_TAG IMPLEMENTATION.
       lv_user = li_user->get_default_git_user_name( ).
     ENDIF.
     IF lv_user IS INITIAL.
-      " get default from user master record
-      lv_user = zcl_abapgit_user_master_record=>get_instance( sy-uname )->get_name( ).
+      " get default from user record
+      lv_user = zcl_abapgit_user_record=>get_instance( sy-uname )->get_name( ).
     ENDIF.
 
     lv_email = li_user->get_repo_git_user_email( mo_repo_online->get_url( ) ).
@@ -212,8 +209,8 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_TAG IMPLEMENTATION.
       lv_email = li_user->get_default_git_user_email( ).
     ENDIF.
     IF lv_email IS INITIAL.
-      " get default from user master record
-      lv_email = zcl_abapgit_user_master_record=>get_instance( sy-uname )->get_email( ).
+      " get default from user record
+      lv_email = zcl_abapgit_user_record=>get_instance( sy-uname )->get_email( ).
     ENDIF.
 
     CREATE OBJECT ri_html TYPE zcl_abapgit_html.
@@ -251,7 +248,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_TAG IMPLEMENTATION.
 
     ri_html->add( render_text_input( iv_name  = 'sha1'
                                      iv_label = 'SHA1'
-                                     iv_value = mo_repo_online->get_sha1_remote( ) ) ).
+                                     iv_value = mo_repo_online->get_current_remote( ) ) ).
 
     ri_html->add( render_text_input( iv_name  = 'name'
                                      iv_label = 'tag name' ) ).

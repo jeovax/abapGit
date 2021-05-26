@@ -3,8 +3,8 @@ CLASS zcl_abapgit_persistence_db DEFINITION
   CREATE PRIVATE .
 
   PUBLIC SECTION.
-    CONSTANTS c_tabname TYPE tabname VALUE 'ZABAPGIT' ##NO_TEXT.
-    CONSTANTS c_lock TYPE viewname VALUE 'EZABAPGIT' ##NO_TEXT.
+    CONSTANTS c_tabname TYPE c LENGTH 30 VALUE 'ZABAPGIT' ##NO_TEXT.
+    CONSTANTS c_lock TYPE c LENGTH 30 VALUE 'EZABAPGIT' ##NO_TEXT.
 
     CONSTANTS:
       c_type_settings   TYPE zif_abapgit_persistence=>ty_type VALUE 'SETTINGS' ##NO_TEXT,
@@ -85,7 +85,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_PERSISTENCE_DB IMPLEMENTATION.
+CLASS zcl_abapgit_persistence_db IMPLEMENTATION.
 
 
   METHOD add.
@@ -172,7 +172,7 @@ CLASS ZCL_ABAPGIT_PERSISTENCE_DB IMPLEMENTATION.
         system_failure = 2
         OTHERS         = 3.
     IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( |Could not aquire lock { iv_type } { iv_value }| ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     lv_dummy_update_function = get_update_function( ).

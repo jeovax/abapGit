@@ -65,7 +65,9 @@ CLASS zcl_abapgit_git_branch_list DEFINITION
       IMPORTING
         !iv_data       TYPE string
       RETURNING
-        VALUE(rv_data) TYPE string .
+        VALUE(rv_data) TYPE string
+      RAISING
+        zcx_abapgit_exception .
     METHODS find_tag_by_name
       IMPORTING
         !iv_branch_name  TYPE string
@@ -90,7 +92,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
+CLASS zcl_abapgit_git_branch_list IMPLEMENTATION.
 
 
   METHOD complete_heads_branch_name.
@@ -108,8 +110,8 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
       EXPORTING
         iv_data        = iv_data
       IMPORTING
-        et_list        = me->mt_branches
-        ev_head_symref = me->mv_head_symref ).
+        et_list        = mt_branches
+        ev_head_symref = mv_head_symref ).
 
   ENDMETHOD.
 
@@ -261,13 +263,19 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
     LOOP AT lt_result INTO lv_data.
       lv_current_row_index = sy-tabix.
 
-      IF sy-tabix = 1 AND strlen( lv_data ) > 49.
+      IF sy-tabix = 1 AND strlen( lv_data ) > 12 AND lv_data(4) = '0000' AND lv_data+8(3) = 'ERR'.
+        lv_name = lv_data+8.
+        zcx_abapgit_exception=>raise( lv_name ).
+      ELSEIF sy-tabix = 1 AND strlen( lv_data ) > 49.
         lv_hash = lv_data+8.
         lv_name = lv_data+49.
         lv_char = zcl_abapgit_git_utils=>get_null( ).
 
         SPLIT lv_name AT lv_char INTO lv_name lv_head_params.
         ev_head_symref = parse_head_params( lv_head_params ).
+        IF ev_head_symref IS INITIAL AND lv_name CS 'refs/heads/'.
+          ev_head_symref = lv_name.
+        ENDIF.
       ELSEIF sy-tabix > 1 AND strlen( lv_data ) > 45.
         lv_hash = lv_data+4.
         lv_name = lv_data+45.
@@ -310,9 +318,8 @@ CLASS ZCL_ABAPGIT_GIT_BRANCH_LIST IMPLEMENTATION.
 
   METHOD skip_first_pkt.
 
-    DATA: lv_hex    TYPE x LENGTH 1,
-          lv_length TYPE i.
-
+    DATA: lv_hex     TYPE x LENGTH 1,
+          lv_length  TYPE i.
 
 * channel
     ASSERT iv_data(2) = '00'.

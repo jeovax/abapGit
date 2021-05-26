@@ -46,9 +46,11 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_TUTORIAL IMPLEMENTATION.
       iv_act = zif_abapgit_definitions=>c_action-go_settings
     )->add(
       iv_txt = zcl_abapgit_gui_buttons=>advanced( )
+      iv_title = 'Utilities'
       io_sub = zcl_abapgit_gui_chunk_lib=>advanced_submenu( )
     )->add(
       iv_txt = zcl_abapgit_gui_buttons=>help( )
+      iv_title = 'Help'
       io_sub = zcl_abapgit_gui_chunk_lib=>help_submenu( ) ).
 
   ENDMETHOD.
@@ -99,7 +101,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_TUTORIAL IMPLEMENTATION.
     ri_html->add( ' from the top menu.' ).
     ri_html->add( '<li>abapGit will start tracking changes for the package ' ).
     ri_html->add( 'without linking it to an online git repository.</li>' ).
-    ri_html->add( '<li>You can link the package later or just export the package content as a zip file.</li>' ).
+    ri_html->add( '<li>You can link the package later or just export the package content as a ZIP file.</li>' ).
 
     ri_html->add( '</ul></p>' ).
 

@@ -20,7 +20,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_OBJECT_ENHO IMPLEMENTATION.
+CLASS zcl_abapgit_object_enho IMPLEMENTATION.
 
 
   METHOD factory.
@@ -110,7 +110,8 @@ CLASS ZCL_ABAPGIT_OBJECT_ENHO IMPLEMENTATION.
   METHOD zif_abapgit_object~delete.
 
     DATA: lv_enh_id     TYPE enhname,
-          li_enh_object TYPE REF TO if_enh_object.
+          li_enh_object TYPE REF TO if_enh_object,
+          lx_enh_root   TYPE REF TO cx_enh_root.
 
     IF zif_abapgit_object~exists( ) = abap_false.
       RETURN.
@@ -121,11 +122,11 @@ CLASS ZCL_ABAPGIT_OBJECT_ENHO IMPLEMENTATION.
         li_enh_object = cl_enh_factory=>get_enhancement(
           enhancement_id = lv_enh_id
           lock           = abap_true ).
-        li_enh_object->delete( ).
-        li_enh_object->save( run_dark = abap_true ).
+        li_enh_object->delete( nevertheless_delete = abap_true
+                               run_dark            = abap_true ).
         li_enh_object->unlock( ).
-      CATCH cx_enh_root.
-        zcx_abapgit_exception=>raise( 'Error deleting ENHO' ).
+      CATCH cx_enh_root INTO lx_enh_root.
+        zcx_abapgit_exception=>raise_with_text( lx_enh_root ).
     ENDTRY.
 
   ENDMETHOD.
@@ -225,7 +226,8 @@ CLASS ZCL_ABAPGIT_OBJECT_ENHO IMPLEMENTATION.
 
     DATA: lv_enh_id   TYPE enhname,
           li_enho     TYPE REF TO zif_abapgit_object_enho,
-          li_enh_tool TYPE REF TO if_enh_tool.
+          li_enh_tool TYPE REF TO if_enh_tool,
+          lx_enh_root  TYPE REF TO cx_enh_root.
 
     IF zif_abapgit_object~exists( ) = abap_false.
       RETURN.
@@ -236,8 +238,8 @@ CLASS ZCL_ABAPGIT_OBJECT_ENHO IMPLEMENTATION.
         li_enh_tool = cl_enh_factory=>get_enhancement(
           enhancement_id   = lv_enh_id
           bypassing_buffer = abap_true ).
-      CATCH cx_enh_root.
-        zcx_abapgit_exception=>raise( 'Error from CL_ENH_FACTORY' ).
+      CATCH cx_enh_root INTO lx_enh_root.
+        zcx_abapgit_exception=>raise_with_text( lx_enh_root ).
     ENDTRY.
 
     li_enho = factory( li_enh_tool->get_tool( ) ).
@@ -249,7 +251,8 @@ CLASS ZCL_ABAPGIT_OBJECT_ENHO IMPLEMENTATION.
       iv_pgmid    = 'R3TR'
       iv_object   = ms_item-obj_type
       iv_obj_name = ms_item-obj_name
-      io_xml      = io_xml ).
+      io_xml      = io_xml
+      iv_language = mv_language ).
 
   ENDMETHOD.
 ENDCLASS.

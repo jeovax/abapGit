@@ -13,14 +13,15 @@ AREA | InfoArea | Yes
 ASFC | Field Catalog | Yes
 ASIS | Archiving Information Structure | [#1579](https://github.com/abapGit/abapGit/issues/1579)
 AUTH | Authorization Check Fields | Yes
-AVAS | Classification | [#1360](https://github.com/abapGit/abapGit/issues/1360)
+AVAR | Activation Variants for Assertions and Breakpoints | Yes
+AVAS | Classification | Yes
 BDEF | Behaviour Definition | Yes
 BMFR | Application Component | [#2108](https://github.com/abapGit/abapGit/issues/2108)
 BOBF | BOPF: Business Object Model | [#165](https://github.com/abapGit/abapGit/issues/165)
 CHAR | Object characteristic | Yes
 CHDO | Change Document Object | Yes
 CLAS | Class (ABAP Objects) | Yes
-CMOD | Customer enhancement projects | [#151](https://github.com/abapGit/abapGit/issues/151)
+CMOD | Customer enhancement projects | Yes
 CMPT | Code Composer Template | Yes
 CUS0 | Customizing IMG Activity | Yes
 CUS1 | Customizing Transactions | Yes
@@ -48,6 +49,8 @@ ENHO | Enhancement Implementation | Yes
 ENHS | Enhancement Spot | Yes
 ENQU | Lock Object | Yes
 ENSC | Composite Enhancement Spot | Yes
+FDT0 | FDT/BRFplus: System Application | [#33](https://github.com/abapGit/abapGit/issues/33)
+FDT1 | FDT/BRFplus: Customizing Application | [#33](https://github.com/abapGit/abapGit/issues/33)
 FORM | SAPscript form | Yes
 FTGL | Feature Toggle | Yes
 FUGR | Function Group | Yes
@@ -74,13 +77,14 @@ JOBD | Technical Job Definition | Yes
 LPDC | Launchpad short texts | [#107](https://github.com/abapGit/abapGit/issues/107)
 MSAG | Message Class | Yes
 NROB | Number Range Objects | Yes
+NSPC | Namespace in R/3 Repository | Yes
 OA2P | OAuth2 Profile | Yes
 ODSO | DataStore Object | Yes
 OTGR | Object type group | Yes
 PARA | SPA/GPA Parameters | Yes
 PDAC | Standard Rule | [#3914](https://github.com/abapGit/abapGit/issues/3914)
 PDTG | Task Group | [#3915](https://github.com/abapGit/abapGit/issues/3915)
-PDTS | Standard Task | [#153](https://github.com/abapGit/abapGit/issues/153)
+PDTS | Standard Task | partial - [#4164](https://github.com/abapGit/abapGit/issues/4164)
 PDWS | Workflow templates | [#154](https://github.com/abapGit/abapGit/issues/154)
 PERS | Personalization object | Yes
 PINF | Package interface | Yes
@@ -90,7 +94,7 @@ SAJC | Application job catalog entry | [#1580](https://github.com/abapGit/abapGi
 SAJT | Application job template | [1581](https://github.com/abapGit/abapGit/issues/1581)
 SAMC | ABAP Messaging Channels | Yes
 SAPC | ABAP Push Channels | Yes
-SCP1 | BC Set or Customizing Profile | [#1004](https://github.com/abapGit/abapGit/issues/1004)
+SCP1 | BC Set or Customizing Profile | Yes
 SCVI | Screen Variants | Yes
 SFBF | Business Function + Assignment | Yes
 SFBS | Business Function Set + Assignment | Yes
@@ -118,7 +122,7 @@ STVI | Transaction Variants | Yes
 STYL | SAPscript style | Yes
 SUCU | Authorization Groups (TBRG_AUTH) | Yes
 SUSC | Authorization object class | Yes
-SUSH | Assignment: Service --> Authorization Objects | [#1582](https://github.com/abapGit/abapGit/issues/1582)
+SUSH | Assignment: Service --> Authorization Objects | Yes
 SUSO | Authorization object | Yes
 SXCI | Business Add-Ins - Implementations | Yes
 TABL | Table | Yes
@@ -134,7 +138,7 @@ VIEW | View | Yes
 W3HT | Web Reporting/Internet Transaction Server HTML Templates | Yes
 W3MI | Web Reporting/Internet Transaction Server MIME Types(binary | Yes
 WAPA | BSP (Business Server Pages) Application | Yes
-WDCA | Web Dynpro Application Configuration | [#79](https://github.com/abapGit/abapGit/issues/79)
+WDCA | Web Dynpro Application Configuration | Yes
 WDCC | Web Dynpro Component Configuration | Yes
 WDYA | Web Dynpro Application | Yes
 WDYN | Web Dynpro Component | Yes

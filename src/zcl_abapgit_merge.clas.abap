@@ -4,31 +4,12 @@ CLASS zcl_abapgit_merge DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
+    INTERFACES zif_abapgit_merge.
 
     METHODS constructor
       IMPORTING
         !io_repo          TYPE REF TO zcl_abapgit_repo_online
         !iv_source_branch TYPE string
-      RAISING
-        zcx_abapgit_exception .
-    METHODS get_conflicts
-      RETURNING
-        VALUE(rt_conflicts) TYPE zif_abapgit_definitions=>ty_merge_conflict_tt .
-    METHODS get_result
-      RETURNING
-        VALUE(rs_merge) TYPE zif_abapgit_definitions=>ty_merge .
-    METHODS get_source_branch
-      RETURNING
-        VALUE(rv_source_branch) TYPE string .
-    METHODS has_conflicts
-      RETURNING
-        VALUE(rv_conflicts_exists) TYPE abap_bool .
-    METHODS resolve_conflict
-      IMPORTING
-        !is_conflict TYPE zif_abapgit_definitions=>ty_merge_conflict
-      RAISING
-        zcx_abapgit_exception .
-    METHODS run
       RAISING
         zcx_abapgit_exception .
   PROTECTED SECTION.
@@ -40,8 +21,8 @@ CLASS zcl_abapgit_merge DEFINITION
       ty_visit_tt TYPE STANDARD TABLE OF zif_abapgit_definitions=>ty_sha1 WITH DEFAULT KEY .
 
     DATA mo_repo TYPE REF TO zcl_abapgit_repo_online .
-    DATA ms_merge TYPE zif_abapgit_definitions=>ty_merge .
-    DATA mt_conflicts TYPE zif_abapgit_definitions=>ty_merge_conflict_tt .
+    DATA ms_merge TYPE zif_abapgit_merge=>ty_merge .
+    DATA mt_conflicts TYPE zif_abapgit_merge=>ty_merge_conflict_tt .
     DATA mt_objects TYPE zif_abapgit_definitions=>ty_objects_tt .
     DATA mv_source_branch TYPE string .
 
@@ -253,7 +234,7 @@ CLASS ZCL_ABAPGIT_MERGE IMPLEMENTATION.
 
   METHOD constructor.
 
-    IF iv_source_branch = io_repo->get_branch_name( ).
+    IF iv_source_branch = io_repo->get_selected_branch( ).
       zcx_abapgit_exception=>raise( 'source = target' ).
     ENDIF.
 
@@ -274,7 +255,7 @@ CLASS ZCL_ABAPGIT_MERGE IMPLEMENTATION.
       zcl_abapgit_git_branch_list=>complete_heads_branch_name( mv_source_branch ) ).
 
     ms_merge-target = lo_branch_list->find_by_name(
-      zcl_abapgit_git_branch_list=>complete_heads_branch_name( mo_repo->get_branch_name( ) ) ).
+      zcl_abapgit_git_branch_list=>complete_heads_branch_name( mo_repo->get_selected_branch( ) ) ).
 
     APPEND ms_merge-source TO lt_upload.
     APPEND ms_merge-target TO lt_upload.
@@ -282,7 +263,7 @@ CLASS ZCL_ABAPGIT_MERGE IMPLEMENTATION.
     zcl_abapgit_git_transport=>upload_pack_by_branch(
       EXPORTING
         iv_url          = ms_merge-repo->get_url( )
-        iv_branch_name  = ms_merge-repo->get_branch_name( )
+        iv_branch_name  = ms_merge-repo->get_selected_branch( )
         iv_deepen_level = 0
         it_branches     = lt_upload
       IMPORTING
@@ -352,37 +333,49 @@ CLASS ZCL_ABAPGIT_MERGE IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_conflicts.
+  METHOD visit.
+
+    IF NOT iv_parent IS INITIAL.
+      READ TABLE ct_visit FROM iv_parent TRANSPORTING NO FIELDS.
+      IF sy-subrc <> 0.
+        APPEND iv_parent TO ct_visit.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD zif_abapgit_merge~get_conflicts.
 
     rt_conflicts = mt_conflicts.
 
   ENDMETHOD.
 
 
-  METHOD get_result.
+  METHOD zif_abapgit_merge~get_result.
 
     rs_merge = ms_merge.
 
   ENDMETHOD.
 
 
-  METHOD get_source_branch.
+  METHOD zif_abapgit_merge~get_source_branch.
 
     rv_source_branch = mv_source_branch.
 
   ENDMETHOD.
 
 
-  METHOD has_conflicts.
+  METHOD zif_abapgit_merge~has_conflicts.
 
     rv_conflicts_exists = boolc( lines( mt_conflicts ) > 0 ).
 
   ENDMETHOD.
 
 
-  METHOD resolve_conflict.
+  METHOD zif_abapgit_merge~resolve_conflict.
 
-    FIELD-SYMBOLS: <ls_conflict> TYPE zif_abapgit_definitions=>ty_merge_conflict,
+    FIELD-SYMBOLS: <ls_conflict> TYPE zif_abapgit_merge=>ty_merge_conflict,
                    <ls_result>   LIKE LINE OF ms_merge-result.
 
     IF is_conflict-result_sha1 IS NOT INITIAL
@@ -415,7 +408,7 @@ CLASS ZCL_ABAPGIT_MERGE IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD run.
+  METHOD zif_abapgit_merge~run.
 
     DATA: lt_asource TYPE ty_ancestor_tt,
           lt_atarget TYPE ty_ancestor_tt.
@@ -433,27 +426,15 @@ CLASS ZCL_ABAPGIT_MERGE IMPLEMENTATION.
 
     ms_merge-stree = zcl_abapgit_git_porcelain=>full_tree(
       it_objects = mt_objects
-      iv_branch  = ms_merge-source-sha1 ).
+      iv_parent  = ms_merge-source-sha1 ).
     ms_merge-ttree = zcl_abapgit_git_porcelain=>full_tree(
       it_objects = mt_objects
-      iv_branch  = ms_merge-target-sha1 ).
+      iv_parent  = ms_merge-target-sha1 ).
     ms_merge-ctree = zcl_abapgit_git_porcelain=>full_tree(
       it_objects = mt_objects
-      iv_branch  = ms_merge-common-commit ).
+      iv_parent  = ms_merge-common-commit ).
 
     calculate_result( ).
-
-  ENDMETHOD.
-
-
-  METHOD visit.
-
-    IF NOT iv_parent IS INITIAL.
-      READ TABLE ct_visit FROM iv_parent TRANSPORTING NO FIELDS.
-      IF sy-subrc <> 0.
-        APPEND iv_parent TO ct_visit.
-      ENDIF.
-    ENDIF.
 
   ENDMETHOD.
 ENDCLASS.

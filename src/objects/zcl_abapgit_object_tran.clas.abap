@@ -109,7 +109,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_OBJECT_TRAN IMPLEMENTATION.
+CLASS zcl_abapgit_object_tran IMPLEMENTATION.
 
 
   METHOD add_data.
@@ -398,11 +398,11 @@ CLASS ZCL_ABAPGIT_OBJECT_TRAN IMPLEMENTATION.
 
     DATA lt_tpool_i18n TYPE TABLE OF tstct.
 
-    IF io_xml->i18n_params( )-serialize_master_lang_only = abap_true.
+    IF io_xml->i18n_params( )-main_language_only = abap_true.
       RETURN.
     ENDIF.
 
-    " Skip master language - it was already serialized
+    " Skip main language - it was already serialized
     " Don't serialize t-code itself
     SELECT sprsl ttext
       INTO CORRESPONDING FIELDS OF TABLE lt_tpool_i18n
@@ -611,7 +611,7 @@ CLASS ZCL_ABAPGIT_OBJECT_TRAN IMPLEMENTATION.
     IF sy-subrc = 4 OR sy-subrc = 3.
       RETURN.
     ELSEIF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'Error from RPY_TRANSACTION_READ' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     READ TABLE lt_tcodes INDEX 1 INTO es_transaction.
@@ -642,7 +642,7 @@ CLASS ZCL_ABAPGIT_OBJECT_TRAN IMPLEMENTATION.
         object_not_found = 0
         OTHERS           = 3.
     IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'Error from RPY_TRANSACTION_DELETE' ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
   ENDMETHOD.
@@ -719,7 +719,7 @@ CLASS ZCL_ABAPGIT_OBJECT_TRAN IMPLEMENTATION.
 
       WHEN OTHERS.
 
-        me->clear_functiongroup_globals( ).
+        clear_functiongroup_globals( ).
 
         CALL FUNCTION 'RPY_TRANSACTION_INSERT'
           EXPORTING
@@ -750,7 +750,7 @@ CLASS ZCL_ABAPGIT_OBJECT_TRAN IMPLEMENTATION.
             db_access_error         = 8
             OTHERS                  = 9.
         IF sy-subrc <> 0.
-          zcx_abapgit_exception=>raise( 'Error from RPY_TRANSACTION_INSERT' ).
+          zcx_abapgit_exception=>raise_t100( ).
         ENDIF.
 
     ENDCASE.

@@ -1,36 +1,30 @@
-CLASS zcl_abapgit_objects_super DEFINITION PUBLIC ABSTRACT.
+CLASS zcl_abapgit_objects_super DEFINITION
+  PUBLIC
+  ABSTRACT
+  CREATE PUBLIC .
 
   PUBLIC SECTION.
 
-    METHODS:
-      constructor
-        IMPORTING
-          is_item     TYPE zif_abapgit_definitions=>ty_item
-          iv_language TYPE spras.
+    CONSTANTS c_user_unknown TYPE xubname VALUE 'UNKNOWN'.
 
-    CLASS-METHODS:
-      jump_adt
-        IMPORTING iv_obj_name     TYPE zif_abapgit_definitions=>ty_item-obj_name
-                  iv_obj_type     TYPE zif_abapgit_definitions=>ty_item-obj_type
-                  iv_sub_obj_name TYPE zif_abapgit_definitions=>ty_item-obj_name OPTIONAL
-                  iv_sub_obj_type TYPE zif_abapgit_definitions=>ty_item-obj_type OPTIONAL
-                  iv_line_number  TYPE i OPTIONAL
-        RAISING   zcx_abapgit_exception.
-
-    CONSTANTS: c_user_unknown TYPE xubname VALUE 'UNKNOWN'.
-
+    METHODS constructor
+      IMPORTING
+        !is_item     TYPE zif_abapgit_definitions=>ty_item
+        !iv_language TYPE spras .
+    CLASS-METHODS jump_adt
+      IMPORTING
+        !iv_obj_name     TYPE zif_abapgit_definitions=>ty_item-obj_name
+        !iv_obj_type     TYPE zif_abapgit_definitions=>ty_item-obj_type
+        !iv_sub_obj_name TYPE zif_abapgit_definitions=>ty_item-obj_name OPTIONAL
+        !iv_sub_obj_type TYPE zif_abapgit_definitions=>ty_item-obj_type OPTIONAL
+        !iv_line_number  TYPE i OPTIONAL
+      RAISING
+        zcx_abapgit_exception .
   PROTECTED SECTION.
 
     DATA ms_item TYPE zif_abapgit_definitions=>ty_item .
     DATA mv_language TYPE spras .
 
-    METHODS check_timestamp
-      IMPORTING
-        !iv_timestamp     TYPE timestamp
-        !iv_date          TYPE d
-        !iv_time          TYPE t
-      RETURNING
-        VALUE(rv_changed) TYPE abap_bool .
     METHODS get_metadata
       RETURNING
         VALUE(rs_metadata) TYPE zif_abapgit_definitions=>ty_metadata .
@@ -46,9 +40,6 @@ CLASS zcl_abapgit_objects_super DEFINITION PUBLIC ABSTRACT.
       RAISING
         zcx_abapgit_exception .
     METHODS jump_se11
-      IMPORTING
-        !iv_radio TYPE string
-        !iv_field TYPE string
       RAISING
         zcx_abapgit_exception .
     METHODS exists_a_lock_entry_for
@@ -91,33 +82,22 @@ CLASS zcl_abapgit_objects_super DEFINITION PUBLIC ABSTRACT.
         VALUE(iv_no_ask_delete_append) TYPE abap_bool DEFAULT abap_false
       RAISING
         zcx_abapgit_exception .
+    METHODS serialize_lxe_texts
+      IMPORTING
+        !ii_xml TYPE REF TO zif_abapgit_xml_output
+      RAISING
+        zcx_abapgit_exception .
+    METHODS deserialize_lxe_texts
+      IMPORTING
+        !ii_xml TYPE REF TO zif_abapgit_xml_input
+      RAISING
+        zcx_abapgit_exception .
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_OBJECTS_SUPER IMPLEMENTATION.
-
-
-  METHOD check_timestamp.
-
-    DATA: lv_ts TYPE timestamp.
-
-    IF sy-subrc = 0 AND iv_date IS NOT INITIAL AND iv_time IS NOT INITIAL.
-      cl_abap_tstmp=>systemtstmp_syst2utc(
-        EXPORTING syst_date = iv_date
-                  syst_time = iv_time
-        IMPORTING utc_tstmp = lv_ts ).
-      IF lv_ts < iv_timestamp.
-        rv_changed = abap_false. " Unchanged
-      ELSE.
-        rv_changed = abap_true.
-      ENDIF.
-    ELSE. " Not found? => changed
-      rv_changed = abap_true.
-    ENDIF.
-
-  ENDMETHOD.
+CLASS zcl_abapgit_objects_super IMPLEMENTATION.
 
 
   METHOD constructor.
@@ -226,8 +206,18 @@ CLASS ZCL_ABAPGIT_OBJECTS_SUPER IMPLEMENTATION.
   METHOD deserialize_longtexts.
 
     zcl_abapgit_factory=>get_longtexts( )->deserialize(
-        ii_xml             = ii_xml
-        iv_master_language = mv_language ).
+      ii_xml           = ii_xml
+      iv_main_language = mv_language ).
+
+  ENDMETHOD.
+
+
+  METHOD deserialize_lxe_texts.
+
+    zcl_abapgit_factory=>get_lxe_texts( )->deserialize(
+      iv_object_type = ms_item-obj_type
+      iv_object_name = ms_item-obj_name
+      ii_xml         = ii_xml ).
 
   ENDMETHOD.
 
@@ -364,6 +354,21 @@ CLASS ZCL_ABAPGIT_OBJECTS_SUPER IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD serialize_lxe_texts.
+
+    IF ii_xml->i18n_params( )-main_language_only = abap_true OR
+       ii_xml->i18n_params( )-translation_languages IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    zcl_abapgit_factory=>get_lxe_texts( )->serialize(
+      iv_object_type = ms_item-obj_type
+      iv_object_name = ms_item-obj_name
+      ii_xml         = ii_xml ).
+
+  ENDMETHOD.
+
+
   METHOD set_default_package.
 
     " In certain cases we need to set the package package via ABAP memory
@@ -397,7 +402,7 @@ CLASS ZCL_ABAPGIT_OBJECTS_SUPER IMPLEMENTATION.
         OTHERS              = 1.
 
     IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( |Error from TR_TADIR_INTERFACE (subrc={ sy-subrc } ).| ).
+      zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
   ENDMETHOD.

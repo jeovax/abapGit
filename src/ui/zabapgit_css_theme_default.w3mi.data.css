@@ -57,6 +57,20 @@ input:focus, textarea:focus { border-color: #8cadd9; }
   background-color: #e6e6e6;
 }
 
+/* ABAPGIT OBJECTS */
+span.user-box {
+  border-color: #c2d4ea;
+  background-color: #d9e4f2;
+}
+span.package-box {
+  border-color: #d3ccd2;
+  background-color: #ebe3ea;
+}
+span.transport-box {
+  border-color: #a7e3cf;
+  background-color: #dbf3eb;
+}
+
 /* PANELS */
 /* TODO: add warning and error colors */
 div.panel.success {
@@ -87,6 +101,7 @@ div.repo { background-color: var(--theme-container-background-color); }
 .repo_name span.name { color: #333; }
 .repo_name span.url  { color: var(--theme-primary-font-color-reduced); }
 .repo_name a.url { color: var(--theme-primary-font-color-reduced); }
+.repo_name a.url:hover { color: var(--theme-link-color); }
 .repo_attr       { color: grey; }
 
 .repo_attr span.bg_marker {
@@ -116,7 +131,7 @@ table.repo_tab {
   background-color: #fff;
 }
 .repo_tab th {
-  color: #888888;
+  color: var(--theme-link-color);
   border-bottom-color: #ddd;
 }
 .repo_tab td {
@@ -337,7 +352,7 @@ table.db_tab td      { color: #333; }
 table.db_tab td.data { color: #888; }
 table.db_tab tbody tr:hover, tr:active { background-color: #f4f4f4; }
 table.db_tab th {
-  color: #888888;
+  color: var(--theme-link-color);
   border-bottom-color: #ddd;
 }
 
@@ -361,6 +376,7 @@ div.tutorial hr { border-color: var(--theme-greyscale-light); }
 div.tutorial h1, h2 { color: #404040; }
 
 /* MENU */
+.nav-container ul li:hover { background-color: #fff; }
 .nav-container ul ul li:hover { background-color: #f6f6f6; }
 .nav-container > ul > li:hover > a { background-color: #ffffff80; }
 .nav-container ul ul { background-color: #fff; }
@@ -461,14 +477,16 @@ table.settings_tab input:focus {
 .dialog input::placeholder { color: #ccc }
 .dialog input:-ms-input-placeholder { color: #ccc }
 .dialog {
-  border-color: #cbcbcb;
-  background-color: #f4f4f4;
+  border-color: #ccc;
+  background-color: #f0f0f0;
 }
 .dialog li.dialog-commands a {
   border-color: #ccc;
+  background-color: #ddd;
 }
 .dialog li.dialog-commands input[type="submit"] {
   border-color: #ccc;
+  background-color: #ddd;
 }
 .dialog li.dialog-commands input[type="submit"].main {
   background-color: #64a8ff;
@@ -483,6 +501,7 @@ table.settings_tab input:focus {
 .dialog li.error small {
   color: #ff5959;
 }
+.dialog li.error input[type="number"],
 .dialog li.error input[type="text"] {
   border-color: #ff5959;
 }
@@ -505,5 +524,14 @@ table.settings_tab input:focus {
   border-color: #dfdfdf;
 }
 .dialog fieldset legend {
-  color: #ccc;
+  color: #444;
+}
+.dialog input:read-only {
+  background-color: #f4f4f4;
+  color: var(--theme-greyscale-dark);
+}
+/* for IE */
+.dialog input[readonly] {
+  background-color: #f4f4f4;
+  color: var(--theme-greyscale-dark);
 }

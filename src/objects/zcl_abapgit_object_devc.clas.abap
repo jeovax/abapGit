@@ -12,31 +12,53 @@ CLASS zcl_abapgit_object_devc DEFINITION PUBLIC
                             iv_language TYPE spras.
   PROTECTED SECTION.
   PRIVATE SECTION.
-    METHODS:
-      get_package RETURNING VALUE(ri_package) TYPE REF TO if_package
-                  RAISING   zcx_abapgit_exception,
-      update_pinf_usages IMPORTING ii_package    TYPE REF TO if_package
-                                   it_usage_data TYPE scomppdata
-                         RAISING   zcx_abapgit_exception,
-      set_lock IMPORTING ii_package TYPE REF TO if_package
-                         iv_lock    TYPE abap_bool
-               RAISING   zcx_abapgit_exception,
-      is_empty
-        IMPORTING iv_package_name    TYPE devclass
-        RETURNING VALUE(rv_is_empty) TYPE abap_bool
-        RAISING   zcx_abapgit_exception,
-      load_package
-        IMPORTING iv_package_name   TYPE devclass
-        RETURNING VALUE(ri_package) TYPE REF TO if_package
-        RAISING   zcx_abapgit_exception.
 
-    DATA:
-      mv_local_devclass TYPE devclass.
+    DATA mv_local_devclass TYPE devclass .
+
+    METHODS get_package
+      RETURNING
+        VALUE(ri_package) TYPE REF TO if_package
+      RAISING
+        zcx_abapgit_exception .
+    METHODS update_pinf_usages
+      IMPORTING
+        !ii_package    TYPE REF TO if_package
+        !it_usage_data TYPE scomppdata
+      RAISING
+        zcx_abapgit_exception .
+    METHODS set_lock
+      IMPORTING
+        !ii_package TYPE REF TO if_package
+        !iv_lock    TYPE abap_bool
+      RAISING
+        zcx_abapgit_exception .
+    METHODS is_empty
+      IMPORTING
+        !iv_package_name   TYPE devclass
+      RETURNING
+        VALUE(rv_is_empty) TYPE abap_bool
+      RAISING
+        zcx_abapgit_exception .
+    METHODS load_package
+      IMPORTING
+        !iv_package_name  TYPE devclass
+      RETURNING
+        VALUE(ri_package) TYPE REF TO if_package
+      RAISING
+        zcx_abapgit_exception .
+    METHODS is_local
+      IMPORTING
+        !iv_package_name   TYPE devclass
+      RETURNING
+        VALUE(rv_is_local) TYPE abap_bool .
+    METHODS remove_obsolete_tadir
+      IMPORTING
+        !iv_package_name TYPE devclass .
 ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
+CLASS zcl_abapgit_object_devc IMPLEMENTATION.
 
 
   METHOD constructor.
@@ -51,7 +73,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
 
 
   METHOD get_package.
-    IF me->zif_abapgit_object~exists( ) = abap_true.
+    IF zif_abapgit_object~exists( ) = abap_true.
       ri_package = load_package( mv_local_devclass ).
     ENDIF.
   ENDMETHOD.
@@ -69,13 +91,27 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " Ignore the SOTR if is linked to the current SAP package (DEVC)
     SELECT SINGLE obj_name
            FROM tadir
            INTO lv_object_name
            WHERE pgmid = 'R3TR'
-           AND NOT ( object = 'DEVC' AND obj_name = iv_package_name )
+           AND NOT ( ( object = 'DEVC' OR object = 'SOTR' ) AND obj_name = iv_package_name )
            AND devclass = iv_package_name.
     rv_is_empty = boolc( sy-subrc <> 0 ).
+
+  ENDMETHOD.
+
+
+  METHOD is_local.
+
+    DATA lv_dlvunit TYPE tdevc-dlvunit.
+
+    SELECT SINGLE dlvunit FROM tdevc INTO lv_dlvunit
+        WHERE devclass = iv_package_name AND intsys <> 'SAP'.
+    IF sy-subrc = 0 AND lv_dlvunit = 'LOCAL'.
+      rv_is_local = abap_true.
+    ENDIF.
 
   ENDMETHOD.
 
@@ -104,52 +140,134 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD remove_obsolete_tadir.
+
+    DATA:
+      lv_pack  TYPE devclass,
+      lt_pack  TYPE STANDARD TABLE OF devclass,
+      ls_tadir TYPE zif_abapgit_definitions=>ty_tadir,
+      lt_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt,
+      ls_item  TYPE zif_abapgit_definitions=>ty_item.
+
+    " TADIR entries must remain for transportable packages
+    IF is_local( iv_package_name ) = abap_false.
+      RETURN.
+    ENDIF.
+
+    " Clean-up sub packages first
+    SELECT devclass FROM tdevc INTO TABLE lt_pack WHERE parentcl = iv_package_name.
+
+    LOOP AT lt_pack INTO lv_pack.
+      remove_obsolete_tadir( lv_pack ).
+    ENDLOOP.
+
+    " Remove TADIR entries for objects that do not exist anymore
+    SELECT * FROM tadir INTO CORRESPONDING FIELDS OF TABLE lt_tadir
+      WHERE devclass = iv_package_name ##TOO_MANY_ITAB_FIELDS.
+
+    LOOP AT lt_tadir INTO ls_tadir.
+      ls_item-obj_type = ls_tadir-object.
+      ls_item-obj_name = ls_tadir-obj_name.
+
+      IF zcl_abapgit_objects=>exists( ls_item ) = abap_false.
+        CALL FUNCTION 'TR_TADIR_INTERFACE'
+          EXPORTING
+            wi_delete_tadir_entry = abap_true
+            wi_tadir_pgmid        = 'R3TR'
+            wi_tadir_object       = ls_tadir-object
+            wi_tadir_obj_name     = ls_tadir-obj_name
+            wi_test_modus         = abap_false
+          EXCEPTIONS
+            OTHERS                = 1 ##FM_SUBRC_OK.
+      ENDIF.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
   METHOD set_lock.
+
     DATA: lv_changeable TYPE abap_bool.
 
     ii_package->get_changeable( IMPORTING e_changeable = lv_changeable ).
     IF lv_changeable <> iv_lock.
-      ii_package->set_changeable(
-        EXPORTING
-          i_changeable                = iv_lock
-        EXCEPTIONS
-          object_locked_by_other_user = 1
-          permission_failure          = 2
-          object_already_changeable   = 3
-          object_already_unlocked     = 4
-          object_just_created         = 5
-          object_deleted              = 6
-          object_modified             = 7
-          object_not_existing         = 8
-          object_invalid              = 9
-          unexpected_error            = 10
-          OTHERS                      = 11 ).
+      TRY.
+          CALL METHOD ii_package->('SET_CHANGEABLE')
+            EXPORTING
+              i_changeable                = iv_lock
+              i_suppress_dialog           = abap_true " Parameter missing in 702
+            EXCEPTIONS
+              object_locked_by_other_user = 1
+              permission_failure          = 2
+              object_already_changeable   = 3
+              object_already_unlocked     = 4
+              object_just_created         = 5
+              object_deleted              = 6
+              object_modified             = 7
+              object_not_existing         = 8
+              object_invalid              = 9
+              unexpected_error            = 10
+              OTHERS                      = 11.
+        CATCH cx_sy_dyn_call_param_not_found.
+          ii_package->set_changeable(
+            EXPORTING
+              i_changeable                = iv_lock
+            EXCEPTIONS
+              object_locked_by_other_user = 1
+              permission_failure          = 2
+              object_already_changeable   = 3
+              object_already_unlocked     = 4
+              object_just_created         = 5
+              object_deleted              = 6
+              object_modified             = 7
+              object_not_existing         = 8
+              object_invalid              = 9
+              unexpected_error            = 10
+              OTHERS                      = 11 ).
+      ENDTRY.
       IF sy-subrc <> 0.
         zcx_abapgit_exception=>raise_t100( ).
       ENDIF.
     ENDIF.
 
-    ii_package->set_permissions_changeable(
-      EXPORTING
-        i_changeable                = iv_lock
-* downport, does not exist in 7.30. Let's see if we can get along without it
-*        i_suppress_dialog           = abap_true
-      EXCEPTIONS
-        object_already_changeable   = 1
-        object_already_unlocked     = 2
-        object_locked_by_other_user = 3
-        object_modified             = 4
-        object_just_created         = 5
-        object_deleted              = 6
-        permission_failure          = 7
-        object_invalid              = 8
-        unexpected_error            = 9
-        OTHERS                      = 10 ).
+    TRY.
+        CALL METHOD ii_package->('SET_PERMISSIONS_CHANGEABLE')
+          EXPORTING
+            i_changeable                = iv_lock
+            i_suppress_dialog           = abap_true " Parameter missing in 702
+          EXCEPTIONS
+            object_already_changeable   = 1
+            object_already_unlocked     = 2
+            object_locked_by_other_user = 3
+            object_modified             = 4
+            object_just_created         = 5
+            object_deleted              = 6
+            permission_failure          = 7
+            object_invalid              = 8
+            unexpected_error            = 9
+            OTHERS                      = 10.
+      CATCH cx_sy_dyn_call_param_not_found.
+        ii_package->set_permissions_changeable(
+          EXPORTING
+            i_changeable                = iv_lock
+          EXCEPTIONS
+            object_already_changeable   = 1
+            object_already_unlocked     = 2
+            object_locked_by_other_user = 3
+            object_modified             = 4
+            object_just_created         = 5
+            object_deleted              = 6
+            permission_failure          = 7
+            object_invalid              = 8
+            unexpected_error            = 9
+            OTHERS                      = 10 ).
+    ENDTRY.
     IF ( sy-subrc = 1 AND iv_lock = abap_true ) OR ( sy-subrc = 2 AND iv_lock = abap_false ).
       " There's no getter to find out beforehand...
     ELSEIF sy-subrc <> 0.
       zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
+
   ENDMETHOD.
 
 
@@ -263,6 +381,8 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
 
     lv_package = ms_item-obj_name.
 
+    remove_obsolete_tadir( lv_package ).
+
     IF is_empty( lv_package ) = abap_true.
 
       li_package = load_package( lv_package ).
@@ -271,45 +391,8 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
         RETURN.
       ENDIF.
 
-      TRY.
-          CALL METHOD li_package->('SET_CHANGEABLE')
-            EXPORTING
-              i_changeable                = abap_true
-              i_suppress_dialog           = abap_true " Parameter missing in 702
-            EXCEPTIONS
-              object_locked_by_other_user = 1
-              permission_failure          = 2
-              object_already_changeable   = 3
-              object_already_unlocked     = 4
-              object_just_created         = 5
-              object_deleted              = 6
-              object_modified             = 7
-              object_not_existing         = 8
-              object_invalid              = 9
-              unexpected_error            = 10
-              OTHERS                      = 11.
-
-        CATCH cx_root.
-          li_package->set_changeable(
-            EXPORTING
-              i_changeable                = abap_true
-            EXCEPTIONS
-              object_locked_by_other_user = 1
-              permission_failure          = 2
-              object_already_changeable   = 3
-              object_already_unlocked     = 4
-              object_just_created         = 5
-              object_deleted              = 6
-              object_modified             = 7
-              object_not_existing         = 8
-              object_invalid              = 9
-              unexpected_error            = 10
-              OTHERS                      = 11 ).
-      ENDTRY.
-
-      IF sy-subrc <> 0.
-        zcx_abapgit_exception=>raise_t100( ).
-      ENDIF.
+      set_lock( ii_package = li_package
+                iv_lock    = abap_true ).
 
       TRY.
           CALL METHOD li_package->('DELETE')
@@ -322,7 +405,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
               intern_err            = 4
               OTHERS                = 5.
 
-        CATCH cx_root.
+        CATCH cx_sy_dyn_call_param_not_found.
 
           li_package->delete(
             EXCEPTIONS
@@ -335,22 +418,40 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
       ENDTRY.
 
       IF sy-subrc <> 0.
+        set_lock( ii_package = li_package
+                  iv_lock    = abap_false ).
         zcx_abapgit_exception=>raise_t100( ).
       ENDIF.
 
-      li_package->save(
-        EXPORTING
-          i_suppress_dialog     = abap_true
-        EXCEPTIONS
-          object_invalid        = 1
-          object_not_changeable = 2
-          cancelled_in_corr     = 3
-          permission_failure    = 4
-          unexpected_error      = 5
-          intern_err            = 6
-          OTHERS                = 7 ).
+      TRY.
+          CALL METHOD li_package->('SAVE')
+            EXPORTING
+              i_suppress_dialog     = abap_true
+            EXCEPTIONS
+              object_invalid        = 1
+              object_not_changeable = 2
+              cancelled_in_corr     = 3
+              permission_failure    = 4
+              unexpected_error      = 5
+              intern_err            = 6
+              OTHERS                = 7.
 
+        CATCH cx_sy_dyn_call_param_not_found.
+
+          li_package->save(
+            EXCEPTIONS
+              object_invalid        = 1
+              object_not_changeable = 2
+              cancelled_in_corr     = 3
+              permission_failure    = 4
+              unexpected_error      = 5
+              intern_err            = 6
+              OTHERS                = 7 ).
+
+      ENDTRY.
       IF sy-subrc <> 0.
+        set_lock( ii_package = li_package
+                  iv_lock    = abap_false ).
         zcx_abapgit_exception=>raise_t100( ).
       ENDIF.
 
@@ -381,7 +482,9 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
 
     " Swap out repository package name with the local installation package name
     ls_package_data-devclass = mv_local_devclass.
-    ls_package_data-pdevclass = li_package->transport_layer.
+    IF li_package IS BOUND.
+      ls_package_data-pdevclass = li_package->transport_layer.
+    ENDIF.
 
     " Parent package is not changed. Assume the folder logic already created the package and set
     " the hierarchy before.
@@ -391,18 +494,18 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
 * korrflag
 * dlvunit
 * parentcl
+* cli_check
+* intprefx
     ls_data_sign-ctext            = abap_true.
     ls_data_sign-as4user          = abap_true.
     ls_data_sign-pdevclass        = abap_true.
     ls_data_sign-comp_posid       = abap_true.
     ls_data_sign-component        = abap_true.
     ls_data_sign-perminher        = abap_true.
-    ls_data_sign-intfprefx        = abap_true.
     ls_data_sign-packtype         = abap_true.
     ls_data_sign-restricted       = abap_true.
     ls_data_sign-mainpack         = abap_true.
     ls_data_sign-srv_check        = abap_true.
-    ls_data_sign-cli_check        = abap_true.
     ls_data_sign-ext_alias        = abap_true.
     ls_data_sign-project_guid     = abap_true.
     ls_data_sign-project_id       = abap_true.
@@ -420,7 +523,7 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
     IF li_package IS BOUND.
       " Package already exists, change it
       set_lock( ii_package = li_package
-                iv_lock = abap_true ).
+                iv_lock    = abap_true ).
 
       li_package->set_all_attributes(
         EXPORTING
@@ -446,6 +549,8 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
 *          superpackage_invalid       = 17  downport, does not exist in 7.30
           OTHERS                     = 18 ).
       IF sy-subrc <> 0.
+        set_lock( ii_package = li_package
+                  iv_lock    = abap_false ).
         zcx_abapgit_exception=>raise_t100( ).
       ENDIF.
 
@@ -514,11 +619,14 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
         object_invalid        = 4
         OTHERS                = 5 ).
     IF sy-subrc <> 0.
+      set_lock( ii_package = li_package
+                iv_lock    = abap_false ).
       zcx_abapgit_exception=>raise_t100( ).
     ENDIF.
 
     set_lock( ii_package = li_package
-              iv_lock = abap_false ).
+              iv_lock    = abap_false ).
+
   ENDMETHOD.
 
 
@@ -635,6 +743,10 @@ CLASS ZCL_ABAPGIT_OBJECT_DEVC IMPLEMENTATION.
     CLEAR: ls_package_data-comp_text,
            ls_package_data-dlvu_text,
            ls_package_data-layer_text.
+
+    " Clear obsolete fields
+    CLEAR: ls_package_data-intfprefx,
+           ls_package_data-cli_check.
 
     ASSIGN COMPONENT 'TRANSLATION_DEPTH_TEXT'
            OF STRUCTURE ls_package_data
